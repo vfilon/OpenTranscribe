@@ -75,7 +75,7 @@ OpenTranscribe backend is built with modern Python technologies:
 - **LLM-Powered Summarization**: Generate BLUF (Bottom Line Up Front) format summaries with action items, decisions, and speaker analysis
 - **Intelligent Section Processing**: Automatically handles transcripts of any length using context-aware chunking and summary stitching
 - **Universal Model Compatibility**: Works with models from 3B parameters (Ollama) to 200B+ parameters (Claude) via adaptive processing
-- **Automatic Translation**: Always converts audio to English transcripts
+- **Multi-Language Support**: Automatic language detection or manual language selection (50+ languages supported)
 - **Video Metadata Extraction**: Extracts detailed metadata from video files using ExifTool (resolution, frame rate, codec, etc.)
 
 #### AI/ML Configuration
@@ -84,6 +84,7 @@ Required environment variables for AI processing:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `WHISPER_MODEL` | Whisper model size to use | `large-v2` |
+| `WHISPER_LANGUAGE` | Language for transcription (`auto` for auto-detection, or language code like `ru`, `en`, `es`, etc.) | `auto` |
 | `DIARIZATION_MODEL` | Pyannote diarization model | `pyannote/speaker-diarization-3.1` |
 | `BATCH_SIZE` | Batch size for processing (reduce if low on GPU memory) | `16` |
 | `COMPUTE_TYPE` | Computation precision (`float16` or `int8`) | `float16` |

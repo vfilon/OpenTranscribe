@@ -22,6 +22,24 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+LANGUAGE_NAME_MAP = {
+    "ar": "Arabic",
+    "de": "German",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "hi": "Hindi",
+    "it": "Italian",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "pt": "Portuguese",
+    "ru": "Russian",
+    "tr": "Turkish",
+    "uk": "Ukrainian",
+    "vi": "Vietnamese",
+    "zh": "Chinese",
+}
+
 
 class LLMProvider(str, Enum):
     OPENAI = "openai"
@@ -496,11 +514,19 @@ class LLMService:
         transcript: str,
         speaker_data: Optional[dict[str, Any]] = None,
         user_id: Optional[int] = None,
+        summary_language: Optional[str] = None,
     ) -> dict[str, Any]:
         """Generate structured summary from transcript"""
         from app.utils.prompt_manager import get_user_active_prompt
 
         prompt_template = get_user_active_prompt(user_id)
+        summary_language_code = self._normalize_language_code(summary_language)
+        language_instruction = self._build_language_instruction(summary_language_code)
+        logger.info(
+            "LLM summary requested in language: %s (code=%s)",
+            self._describe_language(summary_language_code),
+            summary_language_code,
+        )
 
         # Chunk transcript using ONLY user's context window setting
         transcript_chunks = self._chunk_transcript_intelligently(transcript)
@@ -508,35 +534,92 @@ class LLMService:
         if len(transcript_chunks) == 1:
             # Single chunk processing
             logger.info(f"Processing transcript as single section ({len(transcript)} chars)")
-            return self._process_single_chunk(transcript_chunks[0], speaker_data, prompt_template)
+            return self._process_single_chunk(
+                transcript_chunks[0],
+                speaker_data,
+                prompt_template,
+                language_instruction,
+                summary_language_code,
+            )
         else:
             # Multi-chunk processing
             logger.info(f"Processing transcript in {len(transcript_chunks)} sections")
-            return self._process_multiple_chunks(transcript_chunks, speaker_data, prompt_template)
+            return self._process_multiple_chunks(
+                transcript_chunks,
+                speaker_data,
+                prompt_template,
+                language_instruction,
+                summary_language_code,
+            )
+
+    def _normalize_language_code(self, language_code: Optional[str]) -> str:
+        if not language_code:
+            return "auto"
+        normalized = language_code.strip().lower()
+        return normalized or "auto"
+
+    def _build_language_instruction(self, language_code: str) -> str:
+        if language_code == "auto":
+            return (
+                "IMPORTANT: Detect the language used in the transcript and produce the entire summary "
+                "(BLUF, sections, action items, decisions, metadata) strictly in that same language. "
+                "Do not translate or switch languages."
+            )
+
+        language_name = LANGUAGE_NAME_MAP.get(language_code, language_code)
+        return (
+            f"IMPORTANT: Produce the entire summary (BLUF, sections, action items, decisions, metadata) "
+            f"strictly in {language_name} (language code: {language_code}). Do not translate into other languages."
+        )
+
+    def _describe_language(self, language_code: str) -> str:
+        if language_code == "auto":
+            return "matches transcript language"
+        return LANGUAGE_NAME_MAP.get(language_code, language_code)
 
     def _process_single_chunk(
-        self, transcript: str, speaker_data: dict, prompt_template: str
+        self,
+        transcript: str,
+        speaker_data: dict,
+        prompt_template: str,
+        language_instruction: str,
+        summary_language_code: str,
     ) -> dict[str, Any]:
         """Process single transcript chunk"""
         formatted_prompt = prompt_template.format(
             transcript=transcript,
             speaker_data=json.dumps(speaker_data or {}, indent=2),
         )
+        if language_instruction:
+            formatted_prompt = f"{language_instruction}\n\n{formatted_prompt}"
 
         messages = [
             {
                 "role": "system",
                 "content": "You are an expert meeting analyst. Analyze transcripts and generate structured summaries in the exact JSON format specified.",
             },
+            {"role": "system", "content": language_instruction}
+            if language_instruction
+            else None,
             {"role": "user", "content": formatted_prompt},
         ]
+        messages = [msg for msg in messages if msg]
 
         # Use response prefilling to force JSON output (bypasses preamble)
         response = self.chat_completion(messages, temperature=0.1, prefill_json=True)
-        return self._parse_summary_response(response, len(transcript))
+        extra_metadata = {
+            "summary_language": summary_language_code,
+            "summary_language_label": self._describe_language(summary_language_code),
+        }
+        return self._parse_summary_response(response, len(transcript), extra_metadata)
 
     def _process_multiple_chunks(
-        self, chunks: list[str], speaker_data: dict, prompt_template: str
+        self,
+        chunks: list[str],
+        speaker_data: dict,
+        prompt_template: str,
+        language_instruction: str,
+        summary_language_code: str,
     ) -> dict[str, Any]:
         """Process multiple transcript chunks"""
         section_summaries = []
@@ -545,7 +628,13 @@ class LLMService:
             logger.info(f"Processing section {i}/{len(chunks)} ({len(chunk)} chars)")
             try:
                 section_summary = self._summarize_section(
-                    chunk, i, len(chunks), speaker_data, prompt_template
+                    chunk,
+                    i,
+                    len(chunks),
+                    speaker_data,
+                    prompt_template,
+                    language_instruction,
+                    summary_language_code,
                 )
                 section_summaries.append(section_summary)
                 logger.info(f"Section {i} processing completed successfully")
@@ -563,7 +652,14 @@ class LLMService:
 
         # Combine sections into final summary
         logger.info("Combining section summaries into final comprehensive summary")
-        return self._combine_sections(section_summaries, speaker_data, prompt_template, len(chunks))
+        return self._combine_sections(
+            section_summaries,
+            speaker_data,
+            prompt_template,
+            len(chunks),
+            language_instruction,
+            summary_language_code,
+        )
 
     def _summarize_section(
         self,
@@ -572,20 +668,28 @@ class LLMService:
         total_sections: int,
         speaker_data: dict,
         prompt_template: str,
+        language_instruction: str,
+        summary_language_code: str,
     ) -> dict[str, Any]:
         """Summarize a single section"""
         formatted_prompt = prompt_template.format(
             transcript=chunk,
             speaker_data=json.dumps(speaker_data or {}, indent=2),
         )
+        if language_instruction:
+            formatted_prompt = f"{language_instruction}\n\n{formatted_prompt}"
 
         messages = [
             {
                 "role": "system",
                 "content": f"You are analyzing section {section_num} of {total_sections}. Provide a structured summary of this section.",
             },
+            {"role": "system", "content": language_instruction}
+            if language_instruction
+            else None,
             {"role": "user", "content": formatted_prompt},
         ]
+        messages = [msg for msg in messages if msg]
 
         # Use response prefilling for consistent JSON output
         response = self.chat_completion(
@@ -611,7 +715,13 @@ class LLMService:
             }
 
     def _combine_sections(
-        self, sections: list[dict], speaker_data: dict, prompt_template: str, total_sections: int
+        self,
+        sections: list[dict],
+        speaker_data: dict,
+        prompt_template: str,
+        total_sections: int,
+        language_instruction: str,
+        summary_language_code: str,
     ) -> dict[str, Any]:
         """Combine multiple section summaries into final summary"""
         combined_content = f"SECTION SUMMARIES TO COMBINE:\n{json.dumps(sections, indent=2)}"
@@ -620,25 +730,33 @@ class LLMService:
             transcript=combined_content,
             speaker_data=json.dumps(speaker_data or {}, indent=2),
         )
+        if language_instruction:
+            formatted_prompt = f"{language_instruction}\n\n{formatted_prompt}"
 
         messages = [
             {
                 "role": "system",
                 "content": "You are combining multiple section summaries into a comprehensive BLUF format summary.",
             },
+            {"role": "system", "content": language_instruction}
+            if language_instruction
+            else None,
             {"role": "user", "content": formatted_prompt},
         ]
+        messages = [msg for msg in messages if msg]
 
         try:
             # Use response prefilling for final combined summary
             response = self.chat_completion(
                 messages, max_tokens=4000, temperature=0.1, prefill_json=True
             )
-            return self._parse_summary_response(
-                response,
-                0,
-                {"sections_processed": total_sections, "processing_method": "multi-section"},
-            )
+            metadata = {
+                "sections_processed": total_sections,
+                "processing_method": "multi-section",
+                "summary_language": summary_language_code,
+                "summary_language_label": self._describe_language(summary_language_code),
+            }
+            return self._parse_summary_response(response, 0, metadata)
         except Exception as e:
             logger.error(f"Failed to combine sections: {e}")
             return {

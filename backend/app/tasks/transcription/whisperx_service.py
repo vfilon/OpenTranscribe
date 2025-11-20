@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 class WhisperXService:
     """Service for handling WhisperX transcription operations with cross-platform support."""
 
-    def __init__(self, model_name: str = None, models_dir: str = None):
+    def __init__(self, model_name: str = None, models_dir: str = None, language: str = None):
         # Add safe globals for PyTorch 2.6+ compatibility with PyAnnote
         # PyTorch 2.6+ changed torch.load() default to weights_only=True
         # PyAnnote models require ListConfig to be whitelisted
@@ -30,6 +30,9 @@ class WhisperXService:
         # Model configuration
         self.model_name = model_name or os.getenv("WHISPER_MODEL", "large-v2")
         self.models_dir = models_dir or Path.cwd() / "models"
+        
+        # Language configuration
+        self.language = language or os.getenv("WHISPER_LANGUAGE", "auto")
 
         # Hardware-optimized settings
         whisperx_config = self.hardware_config.get_whisperx_config()
@@ -102,8 +105,14 @@ class WhisperXService:
             "whisper_arch": self.model_name,
             "device": self.device,
             "compute_type": self.compute_type,
-            "language": "en",
         }
+        
+        # Add language only if it's not "auto" (for auto-detection, don't specify language)
+        if self.language and self.language.lower() != "auto":
+            load_options["language"] = self.language.lower()
+            logger.info(f"Using specified language: {self.language.lower()}")
+        else:
+            logger.info("Language set to 'auto' - WhisperX will detect language automatically")
 
         # Add device-specific options
         if self.device == "cuda":
@@ -146,7 +155,7 @@ class WhisperXService:
             transcription_result = model.transcribe(
                 audio,
                 batch_size=self.batch_size,
-                task="translate",  # Always translate to English
+                task="transcribe",  # Transcribe in original language (not translate)
             )
 
             # Validate transcription result
@@ -380,6 +389,14 @@ class WhisperXService:
         self.hardware_config.log_vram_usage("before assign_word_speakers")
         final_result = self.assign_speakers_to_words(diarize_segments, aligned_result)
         self.hardware_config.log_vram_usage("after assign_word_speakers")
+
+        # Preserve detected language from initial transcription so downstream tasks know the correct language
+        detected_language = transcription_result.get("language") if isinstance(transcription_result, dict) else None
+        if detected_language:
+            final_result["language"] = detected_language
+        else:
+            # WhisperX should always provide language, but keep a safe default
+            final_result.setdefault("language", "auto")
 
         # CRITICAL: Force cleanup of diarize_segments and audio to free all VRAM
         # These objects may hold references to models internally

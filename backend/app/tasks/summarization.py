@@ -2,18 +2,40 @@ import asyncio
 import json
 import logging
 import time
+from typing import Optional
 
 import redis
 
 from app.core.celery import celery_app
 from app.core.config import settings
 from app.db.base import SessionLocal
+from app.models.media import MediaFile
 from app.models.media import TranscriptSegment
 from app.services.llm_service import LLMService
 from app.services.opensearch_summary_service import OpenSearchSummaryService
 
 # Setup logging
 logger = logging.getLogger(__name__)
+
+
+def _resolve_summary_language(media_file: Optional[MediaFile]) -> str:
+    """
+    Determine which language should be used for summarization output.
+    Priority:
+        1. Detected media file language (if available and not 'auto')
+        2. WHISPER_LANGUAGE env value (if set and not empty)
+        3. 'auto' (LLM instructed to match transcript language)
+    """
+    if media_file and media_file.language:
+        detected = media_file.language.strip().lower()
+        if detected and detected != "auto":
+            return detected
+
+    env_language = (settings.WHISPER_LANGUAGE or "").strip().lower()
+    if env_language:
+        return env_language
+
+    return "auto"
 
 
 def send_summary_notification(
@@ -227,6 +249,11 @@ def summarize_transcript_task(
             30,
         )
 
+        summary_language = _resolve_summary_language(media_file)
+        logger.info(
+            f"Summary language resolved to '{summary_language}' for file {file_id} ({media_file.filename})"
+        )
+
         # Generate comprehensive structured summary using LLM
         logger.info(
             f"Generating LLM summary for file {media_file.filename} (length: {len(full_transcript)} chars)"
@@ -306,6 +333,7 @@ def summarize_transcript_task(
                     transcript=full_transcript,
                     speaker_data=speaker_stats,
                     user_id=media_file.user_id,
+                    summary_language=summary_language,
                 )
             finally:
                 # Clean up the service

@@ -37,7 +37,12 @@ class SpeakerEmbeddingService:
         # Hardware detection
         self.hardware_config = detect_hardware()
         pyannote_config = self.hardware_config.get_pyannote_config()
-        self.device = torch.device(pyannote_config["device"])
+        # Handle both torch.device object and string
+        device_value = pyannote_config["device"]
+        if isinstance(device_value, torch.device):
+            self.device = device_value
+        else:
+            self.device = torch.device(device_value)
 
         # Initialize the model
         self._initialize_model()
@@ -56,9 +61,14 @@ class SpeakerEmbeddingService:
             # Log VRAM before loading embedding model
             self.hardware_config.log_vram_usage("before embedding model load")
 
+            # Pyannote Inference expects torch.device object, not string
+            # Ensure we have a torch.device object
+            if not isinstance(self.device, torch.device):
+                self.device = torch.device(self.device)
+            
             # Initialize the embedding model with authentication if available
             if hf_token:
-                logger.info("Initializing pyannote embedding model with authentication")
+                logger.info(f"Initializing pyannote embedding model with authentication on {self.device}")
                 self.inference = Inference(
                     self.model_name,
                     window="whole",
@@ -66,13 +76,22 @@ class SpeakerEmbeddingService:
                     use_auth_token=hf_token,
                 )
             else:
-                logger.info("Initializing pyannote embedding model without authentication")
+                logger.info(f"Initializing pyannote embedding model without authentication on {self.device}")
                 self.inference = Inference(self.model_name, window="whole", device=self.device)
+
+            # Verify that inference object was created successfully
+            if self.inference is None:
+                raise RuntimeError("Failed to initialize Inference object - returned None")
+            
+            # Check if the model attribute exists and is not None
+            if hasattr(self.inference, "model") and self.inference.model is None:
+                raise RuntimeError("Inference model is None - model failed to load")
 
             self.hardware_config.log_vram_usage("after embedding model loaded")
             logger.info(f"Initialized pyannote embedding model on {self.device}")
         except Exception as e:
             logger.error(f"Error initializing pyannote embedding model: {e}")
+            logger.exception("Full traceback for embedding model initialization error")
             raise
 
     def extract_embedding_from_file(

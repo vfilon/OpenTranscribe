@@ -91,7 +91,9 @@ class TaskDetectionService:
         stuck_files = []
         for media_file in processing_files:
             # Check if file has been processing for too long
-            if media_file.updated_at and media_file.updated_at < stuck_threshold:
+            # Use task_last_update, task_started_at, or upload_time as fallback
+            last_update = media_file.task_last_update or media_file.task_started_at or media_file.upload_time
+            if last_update and last_update < stuck_threshold:
                 # Check if there are any active tasks
                 active_tasks = (
                     db.query(Task)
@@ -107,7 +109,7 @@ class TaskDetectionService:
                     stuck_files.append(media_file)
                     logger.info(
                         f"Found stuck file {media_file.id} ({media_file.filename}) - "
-                        f"processing for {(now - media_file.updated_at).total_seconds() / 60:.1f} minutes "
+                        f"processing for {(now - last_update).total_seconds() / 60:.1f} minutes "
                         f"with no active tasks"
                     )
                 else:

@@ -34,6 +34,7 @@ BATCH_SIZE=auto  # or: 8, 16, 32
 
 ```bash
 WHISPER_MODEL=large-v2  # or: tiny, base, small, medium, large-v3
+WHISPER_LANGUAGE=auto   # auto for auto-detection, or language code (ru, en, es, fr, de, etc.)
 MIN_SPEAKERS=1
 MAX_SPEAKERS=20
 HUGGINGFACE_TOKEN=hf_your_token_here

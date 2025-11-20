@@ -93,6 +93,7 @@ class Settings(BaseSettings):
 
     # AI Models settings
     WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "large-v2")
+    WHISPER_LANGUAGE: str = os.getenv("WHISPER_LANGUAGE", "auto")  # "auto" for auto-detection, or language code (ru, en, es, etc.)
     PYANNOTE_MODEL: str = os.getenv("PYANNOTE_MODEL", "pyannote/speaker-diarization")
     HUGGINGFACE_TOKEN: Optional[str] = os.getenv("HUGGINGFACE_TOKEN", None)
 

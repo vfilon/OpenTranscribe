@@ -15,6 +15,12 @@ AI summarization provides:
 - **Key Decisions**: Important conclusions and agreements
 - **Follow-up Items**: Next steps and pending tasks
 
+## Language Support
+
+- Summaries are generated in the same language as the transcript whenever Whisper detects one.
+- If the transcript language is unknown, the value of `WHISPER_LANGUAGE` is used (or `auto` to match the transcript automatically).
+- This ensures BLUF sections, action items, and metadata stay consistent with the conversation language without forced English translation.
+
 ## Requirements
 
 - LLM provider configured (see [LLM Integration](../features/llm-integration.md))

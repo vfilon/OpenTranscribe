@@ -254,6 +254,8 @@ The `.env` file contains auto-detected settings. You may customize:
 **AI Model Settings:**
 - `WHISPER_MODEL` - Transcription model size (default: large-v2)
   - Options: tiny, base, small, medium, large-v1, large-v2
+- `WHISPER_LANGUAGE` - Language for transcription (default: auto)
+  - Options: auto (automatic detection), or language code (ru, en, es, fr, de, etc.)
 - `BATCH_SIZE` - Processing batch size (default: 16)
 - `MIN_SPEAKERS` / `MAX_SPEAKERS` - Speaker detection range (default: 1-20, can be increased to 50+ for large events)
 

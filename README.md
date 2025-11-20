@@ -528,6 +528,7 @@ HUGGINGFACE_TOKEN=your_huggingface_token_here
 
 # Model configuration
 WHISPER_MODEL=large-v2              # large-v2, medium, small, base
+WHISPER_LANGUAGE=auto               # auto for auto-detection, or language code (ru, en, es, fr, de, etc.)
 COMPUTE_TYPE=float16                # float16, int8
 BATCH_SIZE=16                       # Reduce if GPU memory limited
 
