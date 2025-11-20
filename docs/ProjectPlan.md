@@ -737,7 +737,7 @@ Deployment will be containerized using **Docker Compose**, making it easy to run
      We might create separate images for API and worker if needed, but usually they share code so one image is fine; just different startup command.
    * This image needs to include system libraries for AI (like FFmpeg CLI, and possibly libsndfile for audio, etc.). We’ll apt-get install ffmpeg inside it.
    * It also needs the ML model dependencies: PyTorch with CUDA support, etc. We might base on an official PyTorch image or install via pip (e.g., `pip install torch torchvision torchaudio --extra-index-url ...` for CUDA). Alternatively, use NVIDIA’s CUDA base image + pip.
-   * **GPU support:** To use the GPU in Docker, we will use NVIDIA’s Docker runtime. In docker-compose, we set `deploy.resources.devices` or simply run with `--gpus all`. Compose v3 has `runtime: nvidia` for earlier versions. We'll ensure documentation for deployment includes installing Nvidia Container Toolkit on the host so that the container can access the GPU.
+* **GPU support:** To keep the base `docker-compose.yml` portable, we use the `docker-compose.gpu.yml` overlay that adds `deploy.resources.reservations.devices` for NVIDIA GPUs. The `opentr.sh` script automatically includes this file only when an NVIDIA Container Toolkit is detected, so nothing needs to change on macOS or CPU-only systems. Alternatively you can run `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up` manually.
    * This container will have code for FastAPI endpoints and Celery tasks. We might call it `app` in compose.
 2. **Celery Worker Container:** As mentioned, we might run the same image as FastAPI but with a different command. In docker-compose, we can define a separate service `worker` using the same build, command `celery -A app.tasks worker --queues=transcription,nlp --concurrency=1`.
 
@@ -837,19 +837,12 @@ We open necessary ports:
 * OpenSearch port maybe not exposed except for debugging.
 * We'll use volumes for db and search data, as mentioned.
 
-**GPU Setup in Compose:** For GPU, each container that needs GPU must be run with the NVIDIA runtime. In newer Docker Compose versions, we can specify:
+**GPU Setup in Compose:** Containers that require GPU access get it via overlay files:
 
-```yaml
-deploy:
-  resources:
-    reservations:
-      devices:
-        - capabilities: [gpu]
-```
+- `docker-compose.gpu.yml` — single-GPU overlay that is auto-loaded when available.
+- `docker-compose.gpu-scale.yml` — full `celery-worker-gpu-scaled` service for parallel workers; enabled via `./opentr.sh start dev --gpu-scale` (or by adding `-f docker-compose.gpu-scale.yml` manually).
 
-However, Docker Compose might require `runtime: nvidia` under `deploy` or `devices`. Because it’s a single-node deployment, we might just run Compose with an override: `docker-compose -f compose.yml -f compose.gpu.yml up`, where compose.gpu.yml adds the runtime flags.
-Alternatively, instruct users to run `docker-compose run --gpus all`.
-We'll document it clearly.
+This way the documentation simply explains how to install the NVIDIA Container Toolkit, while the scripts handle the compose combinations.
 
 **Scaling**: In production, if using Docker Compose on a single server, scaling is manual (increase worker count). For more robust scaling and high availability, we could move to Kubernetes:
 

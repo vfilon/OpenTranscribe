@@ -1,13 +1,18 @@
 # docker-compose.gpu-scale.yml
 # Optional overlay for multi-GPU worker scaling
 #
-# This overlay enables parallel GPU workers on a dedicated GPU device,
-# significantly increasing transcription throughput for users with multiple GPUs.
+# This overlay provides full service definition for celery-worker-gpu-scaled,
+# enabling parallel GPU workers on a dedicated GPU device for significantly
+# increased transcription throughput on systems with multiple GPUs.
 #
 # Usage:
 #   ./opentr.sh start dev --gpu-scale
 #   OR
 #   docker compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.gpu-scale.yml up
+#
+# Note: This file contains the complete service definition, including build,
+# volumes, and GPU configuration. The service is not defined in base docker-compose.yml
+# to ensure compatibility with macOS and CPU-only systems.
 #
 # Configuration:
 #   Set these variables in your .env file:
@@ -26,10 +31,22 @@ services:
     scale: 0
 
   # Scaled GPU Worker - Single container with multiple concurrent workers
-  # This overlay enables the service and configures GPU scaling settings
+  # This overlay provides full service definition for GPU-scaled worker
   # Image, build, and pull_policy settings come from overlay files (prod.yml, offline.yml)
   celery-worker-gpu-scaled:
-    scale: 1  # Enable this service (overrides scale: 0 from base)
+    container_name: ${COMPOSE_PROJECT_NAME:-opentranscribe}-celery-worker-gpu-scaled
+    scale: 1  # Enable this service
+    restart: always
+    env_file: .env
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.multiplatform
+    volumes:
+      # Model cache directories - must be owned by UID 1000 on host
+      - ${MODEL_CACHE_DIR:-./models}/huggingface:/home/appuser/.cache/huggingface
+      - ${MODEL_CACHE_DIR:-./models}/torch:/home/appuser/.cache/torch
+      - ${MODEL_CACHE_DIR:-./models}/nltk_data:/home/appuser/.cache/nltk_data
+      - ${MODEL_CACHE_DIR:-./models}/sentence-transformers:/home/appuser/.cache/sentence-transformers
     command: >
       celery -A app.core.celery worker
       -Q gpu

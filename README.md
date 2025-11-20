@@ -264,6 +264,8 @@ Access the web interface at http://localhost:5173
    ./opentr.sh start prod
    ```
 
+   > ℹ️ `opentr.sh` automatically detects the available hardware. If it finds an NVIDIA GPU with the NVIDIA Container Toolkit installed, it adds the `docker-compose.gpu.yml` overlay. On macOS, Apple Silicon, or CPU-only hosts nothing changes because the base compose file already works.
+
 4. **Access the Application**
    - 🌐 **Web Interface**: http://localhost:5173
    - 📚 **API Documentation**: http://localhost:5174/docs
@@ -303,6 +305,8 @@ GPU_SCALE_WORKERS=4         # Number of parallel workers (default: 4)
 # GPU 1: Default single worker (disabled when scaling)
 # GPU 2: 4 parallel workers (processes 4 videos simultaneously)
 ```
+
+When you pass `--gpu-scale`, the script loads the `docker-compose.gpu-scale.yml` overlay, which contains the full `celery-worker-gpu-scaled` service with its own volumes, build configuration, and GPU settings. Without this flag the service is not created, so the base compose file stays compatible with macOS and CPU-only setups.
 
 **Performance:** Process 4 transcriptions simultaneously on a high-end GPU, significantly reducing total processing time for batch uploads.
 
@@ -489,7 +493,11 @@ OpenTranscribe/
 ├── 📁 database/               # Database initialization
 ├── 📁 models_ai/              # AI model storage (runtime)
 ├── 📁 scripts/                # Utility scripts
-├── 📄 docker-compose.yml      # Container orchestration
+├── 📄 docker-compose.yml      # Base container orchestration (works on macOS/Linux/CPU)
+├── 📄 docker-compose.override.yml  # Dev overrides (auto-loaded in dev mode)
+├── 📄 docker-compose.prod.yml       # Production overrides (used in prod mode)
+├── 📄 docker-compose.gpu.yml        # Optional GPU overlay (auto-applied when NVIDIA GPU detected)
+├── 📄 docker-compose.gpu-scale.yml  # Optional multi-GPU overlay (enabled via --gpu-scale)
 ├── 📄 opentr.sh               # Main utility script
 └── 📄 README.md               # This file
 ```

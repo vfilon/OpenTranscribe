@@ -134,14 +134,8 @@ services:
     restart: always
     env_file: .env
     command: celery -A app.core.celery worker --loglevel=info -Q gpu --concurrency=1
-    runtime: nvidia
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
-              device_ids: ['${GPU_DEVICE_ID:-0}']
+    # GPU configuration is provided by docker-compose.gpu.yml overlay
+    # when NVIDIA GPU is detected (automatically handled by opentr.sh)
     volumes:
       # Model cache directories - must be owned by UID 1000 on host
       - ${MODEL_CACHE_DIR:-./models}/huggingface:/home/appuser/.cache/huggingface
@@ -286,20 +280,10 @@ services:
       - postgres
       - redis
 
-  # GPU Scaled Worker - Disabled by default, enabled by docker-compose.gpu-scale.yml
+  # GPU Scaled Worker - Full configuration provided by docker-compose.gpu-scale.yml
   # This service provides high-throughput transcription using multiple concurrent workers
-  # on a single GPU device. See docker-compose.gpu-scale.yml for full configuration.
-  celery-worker-gpu-scaled:
-    container_name: ${COMPOSE_PROJECT_NAME:-opentranscribe}-celery-worker-gpu-scaled
-    scale: 0  # Disabled by default - only enabled when --gpu-scale flag is used
-    restart: always
-    env_file: .env
-    runtime: nvidia
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.multiplatform
-    # Full configuration provided by docker-compose.gpu-scale.yml
-    # Overlay files (prod.yml, offline.yml) provide environment-specific settings
+  # on a single GPU device. See docker-compose.gpu-scale.yml for full service definition.
+  # Usage: ./opentr.sh start dev --gpu-scale
 
   frontend:
     container_name: opentranscribe-frontend
