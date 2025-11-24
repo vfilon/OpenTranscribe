@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, onDestroy, afterUpdate } from 'svelte';
-  import { writable } from 'svelte/store';
   import axiosInstance from '$lib/axios';
   import { websocketStore } from '$stores/websocket';
 
@@ -20,7 +19,7 @@
   import SummaryModal from '$components/SummaryModal.svelte';
   import TranscriptModal from '$components/TranscriptModal.svelte';
   import { isLLMAvailable } from '$stores/llmStatus';
-  import { transcriptStore, processedTranscriptSegments } from '$stores/transcriptStore';
+  import { transcriptStore } from '$stores/transcriptStore';
   import { getAISuggestions, type TagSuggestion, type CollectionSuggestion } from '$lib/api/suggestions';
 
   // No need for a global commentsForExport variable - we'll fetch when needed
@@ -57,6 +56,22 @@
   let loadingVoiceSuggestions = false; // Loading state for voice suggestions during OpenSearch refresh
   let editingSegmentId: string | number | null = null;
   let editingSegmentText = '';
+  let editingSegmentSpeakerId: string | number | null = null;
+  let creatingSpeaker = false;
+
+  interface SegmentUpdateTarget {
+    segment: any;
+    updateText: boolean;
+  }
+
+  interface PendingSpeakerChange {
+    segment: any;
+    newSpeakerId: string | number | null;
+    oldSpeakerId: string | number | null;
+  }
+
+  let showSpeakerApplyModal = false;
+  let pendingSpeakerChange: PendingSpeakerChange | null = null;
   let isEditingSpeakers = false;
   let speakerList: any[] = [];
   let originalSpeakerNames: Map<string, string> = new Map(); // Track original names for change detection
@@ -109,9 +124,6 @@
   let bulkSaveInProgress = false;
   let bulkSaveDecisions = new Map();
 
-  // Reactive store for file updates
-  const reactiveFile = writable(null);
-
 
   /**
    * Fetches file details from the API
@@ -145,7 +157,6 @@
 
         // Update file object
         file = { ...file };
-        reactiveFile.set(file);
 
         // Process the new transcript data
         processTranscriptData();
@@ -178,7 +189,6 @@
       if (response.data && typeof response.data === 'object') {
         file = response.data;
         collections = response.data.collections || [];
-        reactiveFile.set(file);
 
         // Set up video URL using the simple-video endpoint
         setupVideoUrl(targetFileId);
@@ -228,8 +238,18 @@
    * Analytics are provided by the backend - no client-side computation needed
    */
   async function fetchAnalytics(fileId: string) {
-    // Analytics are pre-computed by the backend and included in the API response
-    // No client-side processing required - just use what the backend provides
+    try {
+      // Fetch file data to get updated analytics
+      const response = await axiosInstance.get(`/api/files/${fileId}`);
+      if (response.data && file) {
+        // Update only analytics to avoid disrupting other UI state
+        file.analytics = response.data.analytics;
+        // Trigger reactivity
+        file = { ...file };
+      }
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+    }
   }
 
   /**
@@ -312,8 +332,8 @@
         // Use pre-processed data directly from backend - no frontend business logic
         speakerList = response.data.map((speaker: any) => ({
             ...speaker,
-            showMatches: false,  // Only UI state, not business logic
-            showSuggestions: false  // Only UI state, not business logic
+            showMatches: false,
+            showSuggestions: false
           }));
 
         // Store original speaker names for change detection (trimmed for consistent comparison)
@@ -631,7 +651,6 @@
       // Update file data
       file.transcript_segments = transcriptData.map(segment => ({ ...segment }));
       file = { ...file }; // Trigger reactivity
-      reactiveFile.set(file);
     }
 
     // Update subtitles in the video player with new speaker names
@@ -684,10 +703,28 @@
     }
   }
 
+  function getSegmentSpeakerIdentifier(segment: any): string | number | null {
+    if (!segment) return null;
+    return (
+      segment?.speaker?.id ??
+      segment?.speaker?.uuid ??
+      segment?.speaker_id ??
+      segment?.speaker_uuid ??
+      segment?.speaker_label ??
+      null
+    );
+  }
+
+  function normalizeIdentifier(value: string | number | null | undefined): string | null {
+    if (value === null || value === undefined) return null;
+    return value.toString();
+  }
+
   function handleEditSegment(event: any) {
     const segment = event.detail.segment;
     editingSegmentId = segment.id;
     editingSegmentText = segment.text;
+    editingSegmentSpeakerId = getSegmentSpeakerIdentifier(segment);
   }
 
 
@@ -723,95 +760,325 @@
 
   async function handleSaveSegment(event: any) {
     const segment = event.detail.segment;
-    if (!segment || !editingSegmentText) return;
+    if (!segment) return;
 
-    try {
-      savingTranscript = true;
+    const textChanged = editingSegmentText !== segment.text;
+    const newSpeakerId = editingSegmentSpeakerId;
+    const oldSpeakerId = getSegmentSpeakerIdentifier(segment);
+    const speakerChanged = normalizeIdentifier(newSpeakerId) !== normalizeIdentifier(oldSpeakerId);
 
-      // Call backend API to update the specific segment
-      const segmentUpdate = {
-        text: editingSegmentText
-      };
-
-      const response = await axiosInstance.put(`/api/files/${fileId}/transcript/segments/${segment.id}`, segmentUpdate);
-
-      if (response.data) {
-        // Update the transcript store FIRST for reactivity
-        transcriptStore.updateSegmentText(segment.id, editingSegmentText);
-
-        // Update the specific segment in local data
-        const transcriptData = file?.transcript_segments;
-        if (transcriptData && file) {
-          const segmentIndex = transcriptData.findIndex((s: any) => s.id === segment.id);
-
-          if (segmentIndex !== -1) {
-            // Create a new array with the updated segment, preserving speaker data
-            const updatedSegments = [...transcriptData];
-            const originalSegment = updatedSegments[segmentIndex];
-
-            // CRITICAL: Merge response data but preserve original speaker information
-            updatedSegments[segmentIndex] = {
-              ...originalSegment, // Keep all original data (including speaker info)
-              ...response.data,   // Apply backend updates
-              // Explicitly preserve speaker-related fields that determine colors
-              speaker_label: originalSegment.speaker_label,
-              speaker_id: originalSegment.speaker_id,
-              speaker: originalSegment.speaker,
-              resolved_speaker_name: originalSegment.resolved_speaker_name
-            };
-
-
-            // Update file with new segments array
-            file = {
-              ...file,
-              transcript_segments: updatedSegments
-            };
-            reactiveFile.set(file);
-
-
-            // Clear cached processed videos so downloads will use updated transcript
-            try {
-              await axiosInstance.delete(`/api/files/${file.id}/cache`);
-            } catch (error) {
-              console.warn('Could not clear video cache:', error);
-            }
-          }
-        }
-
-        editingSegmentId = null;
-        editingSegmentText = '';
-
-        // Update subtitles in the video player
-        if (videoPlayerComponent && videoPlayerComponent.updateSubtitles) {
-          try {
-            await videoPlayerComponent.updateSubtitles();
-          } catch (error) {
-            console.warn('Failed to update subtitles after segment edit:', error);
-          }
-        }
-      }
-    } catch (error: any) {
-      console.error('Error saving segment:', error);
-
-      // Show error as toast notification for consistency
-      if (error.response?.status === 405) {
-        toastStore.error('Transcript editing is not supported by the server');
-      } else if (error.response?.status === 404) {
-        toastStore.error('Transcript segment not found');
-      } else if (error.response?.status === 422) {
-        toastStore.error('Invalid segment data. Please check your input.');
-      } else {
-        toastStore.error('Failed to save segment changes');
-      }
-    } finally {
-      savingTranscript = false;
+    if (!textChanged && !speakerChanged) {
+      editingSegmentId = null;
+      editingSegmentSpeakerId = null;
+      return;
     }
+
+    if (speakerChanged) {
+      pendingSpeakerChange = { segment, newSpeakerId, oldSpeakerId };
+      showSpeakerApplyModal = true;
+      return;
+    }
+
+    const targets: SegmentUpdateTarget[] = [
+      { segment, updateText: textChanged }
+    ];
+
+    await persistSegmentUpdates(targets, null);
   }
 
   function handleCancelEditSegment() {
     editingSegmentId = null;
     editingSegmentText = '';
+    editingSegmentSpeakerId = null;
   }
+
+  function sortSpeakers(list: any[]): any[] {
+    const getNumber = (name?: string) => {
+      if (!name || !name.startsWith('SPEAKER_')) return 999;
+      const numeric = parseInt(name.split('_')[1] || '0', 10);
+      return Number.isNaN(numeric) ? 999 : numeric;
+    };
+
+    return [...list].sort((a, b) => getNumber(a?.name) - getNumber(b?.name));
+  }
+
+  function getNextSpeakerCode(): string {
+    let max = 0;
+    speakerList.forEach((speaker) => {
+      const identifier = speaker?.name || speaker?.speaker_label;
+      if (!identifier || !identifier.startsWith('SPEAKER_')) return;
+      const numeric = parseInt(identifier.split('_')[1] || '0', 10);
+      if (!Number.isNaN(numeric) && numeric > max) {
+        max = numeric;
+      }
+    });
+    const next = max + 1;
+    return `SPEAKER_${next.toString().padStart(2, '0')}`;
+  }
+
+  function findSpeakerByIdentifier(id: string | number | null) {
+    if (id === null || id === undefined) return null;
+    const target = id.toString();
+    return (
+      speakerList.find((speaker) => {
+        const candidate =
+          speaker.id ??
+          speaker.uuid ??
+          speaker.name ??
+          speaker.speaker_label;
+        return candidate?.toString() === target;
+      }) || null
+    );
+  }
+
+  function getSpeakerLabelFromId(id: string | number | null) {
+    if (id === null || id === undefined) return null;
+    const matchedSpeaker = findSpeakerByIdentifier(id);
+    if (matchedSpeaker?.name) {
+      return matchedSpeaker.name;
+    }
+    return id.toString();
+  }
+
+
+  function getFollowingSegmentsWithSameSpeaker(segment: any, oldSpeakerId: string | number | null) {
+    if (!file?.transcript_segments) return [];
+    const normalizedOldId = normalizeIdentifier(oldSpeakerId);
+    const startIndex = file.transcript_segments.findIndex((item: any) => item.id === segment.id);
+    if (startIndex === -1) return [];
+
+    const matchingSegments = [];
+    for (let i = startIndex + 1; i < file.transcript_segments.length; i++) {
+      const candidate = file.transcript_segments[i];
+      const candidateId = normalizeIdentifier(getSegmentSpeakerIdentifier(candidate));
+      if (candidateId === normalizedOldId) {
+        matchingSegments.push(candidate);
+      } else {
+        break;
+      }
+    }
+
+    return matchingSegments;
+  }
+
+  function applyLocalSegmentUpdate(
+    segmentId: string | number,
+    serverSegment: any,
+    speakerIdOverride: string | number | null
+  ) {
+    if (!file || !file.transcript_segments) return;
+    const updatedSegments = [...file.transcript_segments];
+    const segmentIndex = updatedSegments.findIndex((segment) => segment.id === segmentId);
+    if (segmentIndex === -1) return;
+
+    const originalSegment = updatedSegments[segmentIndex];
+    const matchedSpeaker = speakerIdOverride !== null ? findSpeakerByIdentifier(speakerIdOverride) : null;
+    const speakerLabel =
+      matchedSpeaker?.name ||
+      originalSegment.speaker_label ||
+      originalSegment.speaker?.name ||
+      null;
+
+    const nextSegment = {
+      ...originalSegment,
+      ...serverSegment,
+      speaker_label: speakerLabel ?? originalSegment.speaker_label,
+      speaker: matchedSpeaker
+        ? {
+            id: matchedSpeaker.id || matchedSpeaker.uuid || matchedSpeaker.name,
+            name: matchedSpeaker.name || matchedSpeaker.speaker_label || originalSegment.speaker?.name,
+            display_name: matchedSpeaker.display_name || matchedSpeaker.name
+          }
+        : originalSegment.speaker,
+      resolved_speaker_name: matchedSpeaker
+        ? matchedSpeaker.display_name || matchedSpeaker.name
+        : originalSegment.resolved_speaker_name
+    };
+
+    updatedSegments[segmentIndex] = nextSegment;
+    file = { ...file, transcript_segments: updatedSegments };
+  }
+
+  async function clearVideoCache() {
+    if (!file?.id) return;
+    try {
+      await axiosInstance.delete(`/api/files/${file.id}/cache`);
+    } catch (error) {
+      console.warn('Could not clear video cache:', error);
+    }
+  }
+
+  async function handleCreateSpeakerRequest(event: CustomEvent) {
+    if (!fileId) {
+      toastStore.error('File ID not found');
+      return;
+    }
+
+    const segment = event.detail?.segment;
+    const suggestedName = event.detail?.suggestedName;
+
+    try {
+      creatingSpeaker = true;
+      const response = await axiosInstance.post(
+        '/api/speakers/',
+        suggestedName ? { name: suggestedName } : {},
+        { params: { media_file_uuid: fileId } }
+      );
+
+      if (response.data) {
+        const normalizedSpeaker = {
+          ...response.data,
+          showMatches: false,
+          showSuggestions: false
+        };
+
+        const speakerId =
+          normalizedSpeaker.id ??
+          normalizedSpeaker.uuid ??
+          normalizedSpeaker.name ??
+          normalizedSpeaker.speaker_label ??
+          null;
+
+        if (speakerId !== null) {
+          originalSpeakerNames.set(
+            speakerId,
+            (normalizedSpeaker.display_name || '').trim()
+          );
+        }
+
+        speakerList = sortSpeakers([...speakerList, normalizedSpeaker]);
+
+        if (file?.id && file.transcript_segments) {
+          transcriptStore.loadTranscriptData(file.id, file.transcript_segments, speakerList);
+        }
+
+        editingSegmentSpeakerId = speakerId;
+
+        const successMessage = segment
+          ? `${normalizedSpeaker.name} created for the current segment`
+          : `${normalizedSpeaker.name} created`;
+        toastStore.success(successMessage);
+      }
+    } catch (error: any) {
+      console.error('Error creating speaker:', error);
+      const message =
+        error?.response?.data?.detail ||
+        (error instanceof Error ? error.message : 'Failed to create speaker');
+      toastStore.error(message);
+    } finally {
+      creatingSpeaker = false;
+    }
+  }
+
+  async function persistSegmentUpdates(
+    targets: SegmentUpdateTarget[],
+    speakerIdToApply: string | number | null
+  ) {
+    if (!targets.length) {
+      return;
+    }
+
+    const speakerChanged = speakerIdToApply !== null && speakerIdToApply !== undefined;
+
+    try {
+      savingTranscript = true;
+
+      for (const target of targets) {
+        const payload: Record<string, any> = {};
+        if (target.updateText) {
+          payload.text = editingSegmentText;
+        }
+        if (speakerIdToApply !== null && speakerIdToApply !== undefined) {
+          payload.speaker_id = speakerIdToApply;
+        }
+
+        if (Object.keys(payload).length === 0) {
+          continue;
+        }
+
+        const response = await axiosInstance.put(
+          `/api/files/${fileId}/transcript/segments/${target.segment.id}`,
+          payload
+        );
+
+        if (response.data) {
+          applyLocalSegmentUpdate(target.segment.id, response.data, speakerIdToApply ?? null);
+        }
+      }
+
+      // Refresh analytics if speaker was changed (backend already refreshed, just update UI)
+      if (speakerChanged && fileId) {
+        await fetchAnalytics(fileId);
+      }
+
+      if (file?.id && file.transcript_segments) {
+        transcriptStore.loadTranscriptData(file.id, file.transcript_segments, speakerList);
+      }
+
+      editingSegmentId = null;
+      editingSegmentText = '';
+      editingSegmentSpeakerId = null;
+
+      await clearVideoCache();
+
+      if (videoPlayerComponent && typeof videoPlayerComponent.updateSubtitles === 'function') {
+        try {
+          await videoPlayerComponent.updateSubtitles();
+        } catch (subtitleError) {
+          console.warn('Failed to update subtitles after segment edit:', subtitleError);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error saving transcript segment:', error);
+      const message =
+        error?.response?.data?.detail ||
+        (error instanceof Error ? error.message : 'Failed to update segment');
+      toastStore.error(message, 5000);
+    } finally {
+      savingTranscript = false;
+    }
+  }
+
+  async function handleSpeakerChangeScope(scope: 'single' | 'following') {
+    if (!pendingSpeakerChange) return;
+
+    const { segment, newSpeakerId, oldSpeakerId } = pendingSpeakerChange;
+    pendingSpeakerChange = null;
+    showSpeakerApplyModal = false;
+
+    const textChanged = editingSegmentText !== segment.text;
+    const segmentsToUpdate: SegmentUpdateTarget[] = [
+      { segment, updateText: textChanged }
+    ];
+
+    if (scope === 'following') {
+      const followingSegments = getFollowingSegmentsWithSameSpeaker(segment, oldSpeakerId);
+      followingSegments.forEach((followingSegment) => {
+        segmentsToUpdate.push({ segment: followingSegment, updateText: false });
+      });
+    }
+
+    await persistSegmentUpdates(segmentsToUpdate, newSpeakerId);
+  }
+
+  function cancelSpeakerChangePrompt() {
+    pendingSpeakerChange = null;
+    showSpeakerApplyModal = false;
+  }
+
+  $: speakerApplyModalLabels = pendingSpeakerChange
+    ? {
+        oldLabel:
+          pendingSpeakerChange.segment?.speaker_label ||
+          getSpeakerLabelFromId(pendingSpeakerChange.oldSpeakerId) ||
+          'SPEAKER',
+        newLabel:
+          findSpeakerByIdentifier(pendingSpeakerChange.newSpeakerId)?.name ||
+          findSpeakerByIdentifier(pendingSpeakerChange.newSpeakerId)?.speaker_label ||
+          pendingSpeakerChange.newSpeakerId ||
+          'New speaker'
+      }
+    : null;
 
   async function handleSaveTranscript() {
     if (!editedTranscript || !file) return;
@@ -1429,7 +1696,6 @@
 
       file.transcript_segments = [...transcriptData];
       file = { ...file };
-      reactiveFile.set(file);
     }
 
     // Update subtitles and clear cache (async, don't block)
@@ -1443,7 +1709,16 @@
       console.warn('Could not clear video cache:', error);
     });
 
-    // STEP 6: Voice suggestions will be refreshed via WebSocket notification
+    // STEP 6: Refresh analytics to reflect updated speaker names
+    try {
+      await axiosInstance.post(`/api/files/${file.id}/analytics/refresh`);
+      // Reload analytics data without full file reload
+      await fetchAnalytics(file.id);
+    } catch (error) {
+      console.warn('Could not refresh analytics after speaker update:', error);
+    }
+
+    // STEP 7: Voice suggestions will be refreshed via WebSocket notification
     // The speaker_updated WebSocket event will trigger loadSpeakers() and clear the loading state
     // This happens automatically when the backend finishes OpenSearch updates
     // If WebSocket fails, fallback to timeout-based reload
@@ -1486,7 +1761,7 @@
   function handleTagsUpdated(event: any) {
     if (file) {
       file.tags = event.detail.tags;
-      reactiveFile.set(file);
+      file = { ...file };
     }
   }
 
@@ -1500,7 +1775,6 @@
     if (file) {
       file.collections = updatedCollections;
       file = { ...file }; // Trigger reactivity
-      reactiveFile.set(file);
     }
   }
 
@@ -1780,7 +2054,6 @@
                   // Update the current processing step from the progressive notification
                   currentProcessingStep = latestNotification.currentStep || latestNotification.message || latestNotification.data?.message || 'Processing...';
                   file = { ...file }; // Trigger reactivity
-                  reactiveFile.set(file);
 
                 }
               } else if (notificationStatus === 'completed' || notificationStatus === 'success' || notificationStatus === 'complete' || notificationStatus === 'finished') {
@@ -1803,7 +2076,6 @@
                   }
 
                   file = { ...file }; // Trigger reactivity
-                  reactiveFile.set(file);
                 }
 
                 // Clear processing step and refresh transcript data after completion
@@ -1882,7 +2154,6 @@
 
                   // Force reactivity update by creating new object reference
                   file = { ...file };
-                  reactiveFile.set(file);
                 }
               } else if (status === 'failed' || status === 'error') {
                 // Summary failed - stop spinners and show error
@@ -2176,13 +2447,16 @@
           {speakerNamesChanged}
           {editingSegmentId}
           bind:editingSegmentText
+          bind:editingSegmentSpeakerId
           {isEditingSpeakers}
           {speakerList}
+          {creatingSpeaker}
           {reprocessing}
           on:segmentClick={handleSegmentClick}
           on:editSegment={handleEditSegment}
           on:saveSegment={handleSaveSegment}
           on:cancelEditSegment={handleCancelEditSegment}
+          on:createSpeaker={handleCreateSpeakerRequest}
           on:saveTranscript={handleSaveTranscript}
           on:exportTranscript={handleExportTranscript}
           on:saveSpeakerNames={handleSaveSpeakerNames}
@@ -2215,6 +2489,38 @@
     </div>
   {/if}
 </div>
+
+{#if showSpeakerApplyModal && pendingSpeakerChange}
+  <div class="modal-overlay">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title">Apply new speaker?</h2>
+          <button class="modal-close-btn" on:click={cancelSpeakerChangePrompt} aria-label="Close dialog">×</button>
+        </div>
+        <div class="modal-body">
+          <p>
+            Apply the change <strong>{speakerApplyModalLabels?.oldLabel}</strong> →
+            <strong>{speakerApplyModalLabels?.newLabel}</strong>
+            only to the current segment or to all following consecutive segments
+            with code {speakerApplyModalLabels?.oldLabel}?
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" on:click={() => handleSpeakerChangeScope('single')}>
+            Current only
+          </button>
+          <button class="btn btn-secondary" on:click={() => handleSpeakerChangeScope('following')}>
+            Current and following
+          </button>
+          <button class="btn btn-cancel" on:click={cancelSpeakerChangePrompt}>
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <!-- Export Confirmation Modal -->
 <ConfirmationModal

@@ -21,9 +21,9 @@ from app.models.media import TranscriptSegment
 from app.models.user import User
 from app.schemas.media import Speaker as SpeakerSchema
 from app.schemas.media import SpeakerUpdate
-from app.services.opensearch_service import update_speaker_display_name
+from app.services.opensearch_service import update_speaker_display_name  # type: ignore
 from app.services.speaker_status_service import SpeakerStatusService
-from app.utils.uuid_helpers import get_speaker_by_uuid
+from app.utils.uuid_helpers import get_speaker_by_uuid, get_file_by_uuid_with_permission
 
 logger = logging.getLogger(__name__)
 
@@ -63,16 +63,52 @@ def create_speaker(
     """
     Create a new speaker for a specific media file
     """
-    from app.utils.uuid_helpers import get_file_by_uuid_with_permission
-
     # Get media file by UUID and verify permission
     media_file = get_file_by_uuid_with_permission(db, media_file_uuid, current_user.id)
 
     # Generate a UUID for the new speaker
     speaker_uuid = str(uuid.uuid4())
 
+    speaker_name = (speaker.name or "").strip()
+    if not speaker_name:
+        # Generate next available SPEAKER_XX label if not provided
+        existing_labels = (
+            db.query(Speaker.name)
+            .filter(
+                Speaker.user_id == current_user.id,
+                Speaker.media_file_id == media_file.id,
+            )
+            .all()
+        )
+        existing_set = {label for (label,) in existing_labels}
+
+        counter = 0
+        while True:
+            candidate = f"SPEAKER_{counter:02d}"
+            if candidate not in existing_set:
+                speaker_name = candidate
+                break
+            counter += 1
+
+    else:
+        # Ensure provided speaker_name doesn't already exist for this file
+        duplicate_exists = (
+            db.query(Speaker)
+            .filter(
+                Speaker.user_id == current_user.id,
+                Speaker.media_file_id == media_file.id,
+                Speaker.name == speaker_name,
+            )
+            .first()
+        )
+        if duplicate_exists:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Speaker {speaker_name} already exists for this file",
+            )
+
     new_speaker = Speaker(
-        name=speaker.name,
+        name=speaker_name,
         display_name=speaker.display_name,
         uuid=speaker_uuid,
         user_id=current_user.id,
@@ -727,6 +763,17 @@ def update_speaker(
 
     # Clear video cache
     _clear_video_cache_for_speaker(db, speaker.media_file_id)
+
+    # Refresh analytics if display name changed (speaker names affect analytics display)
+    # Note: Analytics are also refreshed when speaker_id changes in segments (see update_single_transcript_segment)
+    if speaker_update.display_name is not None:
+        try:
+            from app.services.analytics_service import AnalyticsService
+            AnalyticsService.refresh_analytics(db, speaker.media_file_id)
+            logger.info(f"Refreshed analytics for file {speaker.media_file_id} after speaker name update")
+        except Exception as e:
+            logger.warning(f"Failed to refresh analytics after speaker name update: {e}")
+            # Don't fail the operation if analytics refresh fails
 
     # Send WebSocket notification for real-time UI updates
     # Note: WebSocket notifications are best-effort, failures won't affect the operation

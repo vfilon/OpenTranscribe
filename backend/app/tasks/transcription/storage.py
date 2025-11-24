@@ -23,6 +23,17 @@ def save_transcript_segments(db: Session, file_id: int, segments: list[dict[str,
     """
     logger.info(f"Saving {len(segments)} transcript segments to database")
 
+    # Remove existing segments before inserting new ones to avoid duplicates
+    deleted_count = (
+        db.query(TranscriptSegment)
+        .filter(TranscriptSegment.media_file_id == file_id)
+        .delete(synchronize_session=False)
+    )
+    if deleted_count:
+        logger.info(
+            f"Deleted {deleted_count} existing transcript segments for file {file_id} prior to insert"
+        )
+
     for segment in segments:
         db_segment = TranscriptSegment(
             media_file_id=file_id,

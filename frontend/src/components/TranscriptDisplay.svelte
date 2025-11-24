@@ -5,6 +5,7 @@
   import ReprocessButton from './ReprocessButton.svelte';
   import ScrollbarIndicator from './ScrollbarIndicator.svelte';
   import TranscriptSearch from './TranscriptSearch.svelte';
+  import SpeakerSelector from './SpeakerSelector.svelte';
   import { type TranscriptSegment } from '$lib/utils/scrollbarCalculations';
   import { downloadStore } from '$stores/downloads';
   import { toastStore } from '$stores/toast';
@@ -15,10 +16,12 @@
   export let editedTranscript: string = '';
   export let savingTranscript: boolean = false;
   export let savingSpeakers: boolean = false;
+  export let creatingSpeaker: boolean = false;
   export let loadingVoiceSuggestions: boolean = false; // Loading state for voice suggestions
   export let speakerNamesChanged: boolean = false; // Track if speaker names have unsaved changes
   export let editingSegmentId: string | number | null = null;
   export let editingSegmentText: string = '';
+  export let editingSegmentSpeakerId: string | number | null = null;
   export let isEditingSpeakers: boolean = false;
   export let speakerList: any[] = [];
   export let reprocessing: boolean = false;
@@ -96,6 +99,10 @@
 
   function saveSegment(segment: any) {
     dispatch('saveSegment', { segment });
+  }
+
+  function createSpeakerForSegment(payload: any) {
+    dispatch('createSpeaker', payload);
   }
 
   function cancelEditSegment() {
@@ -308,7 +315,13 @@
             {#if editingSegmentId === segment.id}
               <div class="segment-edit-container">
                 <div class="segment-time">{segment.display_timestamp || segment.formatted_timestamp || formatSimpleTimestamp(segment.start_time)}</div>
-                <div class="segment-speaker">{segment.speaker?.display_name || segment.speaker?.name || segment.speaker_label || 'Unknown'}</div>
+                <SpeakerSelector
+                  {speakerList}
+                  bind:selectedSpeakerId={editingSegmentSpeakerId}
+                  fallbackLabel={segment.speaker?.display_name || segment.speaker?.name || segment.speaker_label || 'Unknown'}
+                  disabled={creatingSpeaker || savingTranscript}
+                  on:createNew={(event) => createSpeakerForSegment({ segment, ...event.detail })}
+                />
                 <div class="segment-edit-input">
                   <textarea bind:value={editingSegmentText} rows="3" class="segment-textarea"></textarea>
                   <div class="segment-edit-actions">

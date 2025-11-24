@@ -23,7 +23,10 @@ from app.services.formatting_service import FormattingService
 from app.services.minio_service import delete_file
 from app.services.opensearch_service import update_transcript_title
 from app.services.speaker_status_service import SpeakerStatusService
-from app.utils.uuid_helpers import get_file_by_uuid_with_permission
+from app.utils.uuid_helpers import (
+    get_file_by_uuid_with_permission,
+    get_speaker_by_uuid,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -485,6 +488,41 @@ def delete_media_file(db: Session, file_uuid: str, current_user: User, force: bo
         ) from e
 
 
+def _cleanup_unused_speakers(db: Session, file_id: int) -> None:
+    """
+    Remove speakers that are not used in any transcript segments for a file.
+
+    Args:
+        db: Database session
+        file_id: Media file ID
+    """
+    # Get all speaker IDs that are actually used in segments
+    used_speaker_ids = (
+        db.query(TranscriptSegment.speaker_id)
+        .filter(
+            TranscriptSegment.media_file_id == file_id,
+            TranscriptSegment.speaker_id.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    used_ids = {row[0] for row in used_speaker_ids if row[0] is not None}
+
+    # Find all speakers for this file
+    all_speakers = db.query(Speaker).filter(Speaker.media_file_id == file_id).all()
+
+    # Delete speakers that are not used
+    deleted_count = 0
+    for speaker in all_speakers:
+        if speaker.id not in used_ids:
+            db.delete(speaker)
+            deleted_count += 1
+
+    if deleted_count > 0:
+        db.commit()
+        logger.info(f"Cleaned up {deleted_count} unused speaker(s) for file {file_id}")
+
+
 def update_single_transcript_segment(
     db: Session,
     file_uuid: str,
@@ -525,12 +563,46 @@ def update_single_transcript_segment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Transcript segment not found"
         )
 
+    update_data = segment_update.model_dump(exclude_unset=True)
+
+    # Convert speaker UUID to internal integer ID
+    if "speaker_id" in update_data and update_data["speaker_id"] is not None:
+        speaker = get_speaker_by_uuid(db, update_data["speaker_id"])
+
+        if speaker.media_file_id != file_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Speaker does not belong to this file",
+            )
+
+        update_data["speaker_id"] = speaker.id
+
+    # Track if speaker_id changed (affects analytics)
+    # Check before updating to detect any change (including setting to None)
+    speaker_id_changed = (
+        "speaker_id" in update_data
+        and segment.speaker_id != update_data.get("speaker_id")
+    )
+
     # Update fields
-    for field, value in segment_update.model_dump(exclude_unset=True).items():
+    for field, value in update_data.items():
         setattr(segment, field, value)
 
     db.commit()
     db.refresh(segment)
+
+    # Clean up unused speakers after segment update
+    _cleanup_unused_speakers(db, file_id)
+
+    # Refresh analytics if speaker assignment changed (speaker changes affect analytics)
+    if speaker_id_changed:
+        try:
+            from app.services.analytics_service import AnalyticsService
+            AnalyticsService.refresh_analytics(db, file_id)
+            logger.info(f"Refreshed analytics for file {file_id} after segment speaker change")
+        except Exception as e:
+            logger.warning(f"Failed to refresh analytics after segment speaker change: {e}")
+            # Don't fail the operation if analytics refresh fails
 
     return segment
 
