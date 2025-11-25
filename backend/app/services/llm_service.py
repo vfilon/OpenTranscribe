@@ -231,6 +231,8 @@ class LLMService:
                 "options": {
                     "temperature": kwargs.get("temperature", self.config.temperature),
                     "num_predict": kwargs.get("max_tokens", self.config.response_tokens),
+                    # Force Ollama to honor the user's configured context window
+                    "num_ctx": kwargs.get("num_ctx", self.user_context_window),
                 },
             }
             # Add format parameter for structured output if provided
