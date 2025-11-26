@@ -38,9 +38,14 @@ async function downloadFile(url) {
 // Download Plyr SVG icons
 async function downloadPlyrIcons() {
   try {
-    const publicDir = join(__dirname, '../public');
-    const plyrSvgPath = join(publicDir, 'plyr.svg');
+    const staticDir = join(__dirname, '../static');
+    const plyrSvgPath = join(staticDir, 'plyr.svg');
     const plyrSvgUrl = 'https://cdn.plyr.io/3.7.8/plyr.svg';
+
+    // Ensure static directory exists (SvelteKit serves from /static)
+    if (!existsSync(staticDir)) {
+      mkdirSync(staticDir, { recursive: true });
+    }
 
     console.log('Downloading Plyr icons...');
     const svgData = await downloadFile(plyrSvgUrl);
