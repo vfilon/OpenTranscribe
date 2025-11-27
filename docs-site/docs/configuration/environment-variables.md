@@ -71,6 +71,26 @@ MINIO_CONSOLE_PORT=5179
 OPENSEARCH_PORT=5180
 ```
 
+**Note:** These ports are used for direct container access during development. When using a reverse proxy (nginx, Traefik), the frontend automatically detects the current domain and constructs all API/WebSocket/Flower URLs dynamically — no additional configuration needed.
+
+## Reverse Proxy Configuration
+
+When deploying with nginx reverse proxy:
+
+```bash
+# Nginx configuration
+NGINX_SERVER_NAME=transcribe.example.com
+NGINX_CERT_FILE=./certs/transcribe.example.com.crt
+NGINX_CERT_KEY=./certs/transcribe.example.com.key
+```
+
+The frontend will automatically use:
+- API: `https://transcribe.example.com/api`
+- WebSocket: `wss://transcribe.example.com/api/ws`
+- Flower: `https://transcribe.example.com/flower/`
+
+**Note:** The paths `/api`, `/api/ws`, and `/flower` are fixed and cannot be changed. This ensures the frontend Docker image works on any domain without rebuild.
+
 ## Next Steps
 
 - [GPU Setup](../installation/gpu-setup.md)

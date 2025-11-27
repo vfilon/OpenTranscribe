@@ -564,17 +564,12 @@
             <button
               class="dropdown-item"
               on:click={() => {
-                // Get the current protocol and host
+                // Dynamically construct Flower URL from current location
+                // Works on any domain without rebuild
                 const protocol = window.location.protocol;
-                const host = window.location.hostname;
-                const port = import.meta.env.VITE_FLOWER_PORT || '5175';
-                const urlPrefix = import.meta.env.VITE_FLOWER_URL_PREFIX || 'flower';
-
-                // Construct the URL properly with trailing slash
-                const url = urlPrefix
-                  ? `${protocol}//${host}:${port}/${urlPrefix}/`
-                  : `${protocol}//${host}:${port}/`;
-
+                const host = window.location.host;
+                const url = `${protocol}//${host}/flower/`;
+                
                 // Open Flower in a new tab with the correct URL
                 window.open(url, '_blank');
                 showDropdown = false;

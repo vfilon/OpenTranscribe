@@ -86,13 +86,37 @@ fix_model_cache_permissions() {
 
 # Print access information for all services
 print_access_info() {
-  echo "🌐 Access the application at:"
-  echo "   - Frontend: http://localhost:5173"
-  echo "   - API: http://localhost:5174/api"
-  echo "   - API Documentation: http://localhost:5174/docs"
-  echo "   - MinIO Console: http://localhost:5179"
-  echo "   - Flower Dashboard: http://localhost:5175/flower"
-  echo "   - OpenSearch Dashboards: http://localhost:5182"
+  # Check if nginx is configured (via NGINX_SERVER_NAME)
+  local domain=""
+  local protocol="https"
+  
+  if [ -f .env ]; then
+    domain=$(grep '^NGINX_SERVER_NAME=' .env | grep -v '^#' | cut -d'=' -f2 | tr -d ' "' | head -1)
+  fi
+  
+  # Also check environment variable (in case .env was loaded)
+  if [ -z "$domain" ]; then
+    domain="${NGINX_SERVER_NAME:-}"
+  fi
+  
+  if [ -n "$domain" ]; then
+    # Nginx reverse proxy mode
+    echo "🌐 Access the application at:"
+    echo "   - Frontend: ${protocol}://${domain}"
+    echo "   - API: ${protocol}://${domain}/api"
+    echo "   - API Documentation: ${protocol}://${domain}/api/docs"
+    echo "   - MinIO Console: ${protocol}://${domain}/minio"
+    echo "   - Flower Dashboard: ${protocol}://${domain}/flower"
+  else
+    # Direct container access mode (localhost)
+    echo "🌐 Access the application at:"
+    echo "   - Frontend: http://localhost:5173"
+    echo "   - API: http://localhost:5174/api"
+    echo "   - API Documentation: http://localhost:5174/docs"
+    echo "   - MinIO Console: http://localhost:5179"
+    echo "   - Flower Dashboard: http://localhost:5175/flower"
+    echo "   - OpenSearch Dashboards: http://localhost:5182"
+  fi
 }
 
 #######################

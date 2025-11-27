@@ -137,13 +137,11 @@
   }
   
   function openFlowerDashboard() {
+    // Dynamically construct Flower URL from current location
+    // Works on any domain without rebuild
     const protocol = window.location.protocol;
-    const host = window.location.hostname;
-    const port = import.meta.env.VITE_FLOWER_PORT || '5175';
-    const urlPrefix = import.meta.env.VITE_FLOWER_URL_PREFIX || 'flower';
-    const url = urlPrefix 
-      ? `${protocol}//${host}:${port}/${urlPrefix}/` 
-      : `${protocol}//${host}:${port}/`;
+    const host = window.location.host;
+    const url = `${protocol}//${host}/flower/`;
     window.open(url, '_blank');
   }
   

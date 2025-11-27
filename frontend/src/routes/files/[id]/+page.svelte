@@ -1961,8 +1961,8 @@
 
   // Component mount logic
   onMount(() => {
-    // Use the correct backend API base URL (port 5174, not frontend port 5173)
-    apiBaseUrl = window.location.protocol + '//' + window.location.hostname + ':5174';
+    // Use dynamic URL based on current location (works with reverse proxy)
+    apiBaseUrl = window.location.protocol + '//' + window.location.host;
 
 
     if (id) {

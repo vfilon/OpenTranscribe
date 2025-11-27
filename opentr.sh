@@ -8,6 +8,18 @@
 # shellcheck source=scripts/common.sh
 source ./scripts/common.sh
 
+# Load environment variables from .env if present
+if [ -f ".env" ]; then
+  set -a
+  # shellcheck source=.env
+  source ./.env
+  set +a
+fi
+
+# Maximum compose files list for stopping/removing all containers
+# Includes all possible compose files to ensure all containers are stopped
+MAX_COMPOSE_FILES="-f docker-compose.yml -f docker-compose.override.yml -f docker-compose.prod.yml -f docker-compose.gpu.yml -f docker-compose.gpu-scale.yml -f docker-compose.nginx.yml -f docker-compose.offline.yml"
+
 #######################
 # HELPER FUNCTIONS
 #######################
@@ -203,6 +215,7 @@ start_app() {
   if [ "$ENVIRONMENT" = "prod" ]; then
     # Production: Use base + prod override files
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.prod.yml"
+
     # Note: INIT_DB_PATH uses default ./database/init_db.sql (same for all modes)
 
     if [ "$PULL_FLAG" = "--pull" ]; then
@@ -242,6 +255,10 @@ start_app() {
     echo "🎯 Adding GPU scaling overlay (docker-compose.gpu-scale.yml)"
   fi
 
+  if [ -n "$NGINX_SERVER_NAME" ]; then
+    echo "🎯 Adding NGINX server name: $NGINX_SERVER_NAME"
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.nginx.yml"
+  fi
   # Start services with appropriate compose files
   # shellcheck disable=SC2086
   docker compose $COMPOSE_FILES up -d $BUILD_CMD
@@ -366,6 +383,11 @@ reset_and_init() {
     echo "🎯 Adding GPU scaling overlay (docker-compose.gpu-scale.yml)"
   fi
 
+  if [ -n "$NGINX_SERVER_NAME" ]; then
+    echo "🎯 Adding NGINX server name: $NGINX_SERVER_NAME"
+    COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.nginx.yml"
+  fi
+
   echo "🛑 Stopping all containers and removing volumes..."
   # shellcheck disable=SC2086
   docker compose $COMPOSE_FILES down -v
@@ -477,6 +499,10 @@ restart_all() {
   echo "🔄 Restarting all services without database reset..."
 
   # Restart all services in place - docker compose handles dependency ordering
+  # Use MAX_COMPOSE_FILES to ensure all containers (including nginx) are restarted
+  # restart only affects existing containers, won't start new ones
+  # shellcheck disable=SC2086
+  # docker compose $MAX_COMPOSE_FILES restart
   docker compose restart
 
   echo "✅ All services restarted successfully."
@@ -491,9 +517,10 @@ remove_system() {
   echo "🗑️ Removing OpenTranscribe containers and data volumes..."
 
   # Stop and remove containers and volumes
-  # Note: docker compose down automatically loads docker-compose.yml + docker-compose.override.yml
+  # Use MAX_COMPOSE_FILES to ensure all containers from all compose files are stopped
   echo "🗑️ Stopping containers and removing data volumes..."
-  docker compose down -v
+  # shellcheck disable=SC2086
+  docker compose $MAX_COMPOSE_FILES down -v
 
   echo "✅ Containers and data volumes removed. Images preserved for faster rebuilds."
 }
@@ -503,9 +530,10 @@ purge_system() {
   echo "💥 Purging ALL OpenTranscribe resources including images..."
 
   # Stop and remove everything
-  # Note: docker compose down automatically loads docker-compose.yml + docker-compose.override.yml
+  # Use MAX_COMPOSE_FILES to ensure all containers from all compose files are stopped
   echo "🗑️ Stopping and removing containers, volumes, and images..."
-  docker compose down -v --rmi all
+  # shellcheck disable=SC2086
+  docker compose $MAX_COMPOSE_FILES down -v --rmi all
 
   # Remove any remaining OpenTranscribe images
   echo "🗑️ Removing any remaining OpenTranscribe images..."
@@ -563,7 +591,9 @@ case "$1" in
 
   stop)
     echo "🛑 Stopping all containers..."
-    docker compose down
+    # Use MAX_COMPOSE_FILES to ensure all containers from all compose files are stopped
+    # shellcheck disable=SC2086
+    docker compose $MAX_COMPOSE_FILES down
     echo "✅ All containers stopped."
     ;;
 

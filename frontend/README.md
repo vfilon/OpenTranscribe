@@ -393,18 +393,28 @@ docker run -p 5173:80 opentranscribe-frontend:prod
 ## 🔧 Configuration
 
 ### Environment Variables
-```bash
-# API configuration
-VITE_API_BASE_URL=http://localhost:5174/api
-VITE_WS_URL=ws://localhost:5174/ws
 
-# Feature flags
+**No API/WebSocket configuration required!** The frontend automatically detects the current domain and constructs all URLs dynamically using `window.location`. This means:
+
+- ✅ Works on `localhost:5173` during development
+- ✅ Works on any production domain without rebuild
+- ✅ Works behind reverse proxies (nginx, Traefik) automatically
+
+Available optional feature flags:
+
+```bash
+# Feature flags (optional)
 VITE_ENABLE_DEBUG=true
 VITE_ENABLE_PWA=true
 
-# Analytics
+# Analytics (optional)
 VITE_ANALYTICS_ID=your-analytics-id
 ```
+
+**How it works:**
+- API calls: `${window.location.protocol}//${window.location.host}/api`
+- WebSocket: `wss://${window.location.host}/api/ws` (or `ws://` for http)
+- Flower: `${window.location.protocol}//${window.location.host}/flower/`
 
 ### Vite Configuration (`vite.config.ts`)
 ```typescript

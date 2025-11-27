@@ -141,11 +141,11 @@ function createWebSocketStore() {
       }
 
       try {
-        // Always construct WebSocket URL dynamically based on current location
-        // This ensures it works in dev, production, and when accessed from different computers
+        // Always construct WebSocket URL dynamically from current location
+        // This ensures the image works on any domain without rebuild
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/api/ws?token=${token}`;
+        const wsUrl = `${protocol}//${host}/api/ws?token=${encodeURIComponent(token)}`;
 
         // Create new WebSocket
         const socket = new WebSocket(wsUrl);
