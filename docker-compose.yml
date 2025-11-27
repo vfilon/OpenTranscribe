@@ -114,7 +114,7 @@ services:
       - MODEL_BASE_DIR=/app/models
       - TEMP_DIR=/app/temp
     tmpfs:
-      - /app/temp:noexec,nosuid,size=4g
+      - /app/temp:noexec,nosuid,size=4g,mode=1777
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -158,7 +158,7 @@ services:
       - MODEL_BASE_DIR=/app/models
       - TEMP_DIR=/app/temp
     tmpfs:
-      - /app/temp:noexec,nosuid,size=20g
+      - /app/temp:noexec,nosuid,size=20g,mode=1777
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -191,7 +191,7 @@ services:
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
     tmpfs:
-      - /app/temp:noexec,nosuid,size=15g
+      - /app/temp:noexec,nosuid,size=15g,mode=1777
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -221,7 +221,7 @@ services:
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
     tmpfs:
-      - /app/temp:noexec,nosuid,size=5g
+      - /app/temp:noexec,nosuid,size=5g,mode=1777
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -251,7 +251,7 @@ services:
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
     tmpfs:
-      - /app/temp:noexec,nosuid,size=5g
+      - /app/temp:noexec,nosuid,size=5g,mode=1777
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -281,7 +281,7 @@ services:
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
     tmpfs:
-      - /app/temp:noexec,nosuid,size=1g
+      - /app/temp:noexec,nosuid,size=1g,mode=1777
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import os,time; exit(0 if os.path.exists(\"/app/celerybeat-schedule\") and time.time()-os.path.getmtime(\"/app/celerybeat-schedule\")<300 else 1)'"]
       interval: 30s
@@ -317,7 +317,7 @@ services:
       - MODEL_BASE_DIR=/app/models
       - TEMP_DIR=/app/temp
     tmpfs:
-      - /app/temp:noexec,nosuid,size=20g
+      - /app/temp:noexec,nosuid,size=20g,mode=1777
     depends_on:
       - postgres
       - redis
@@ -356,7 +356,7 @@ services:
       # Flower only needs persistent database for monitoring, not AI models
       - flower_data:/app
     tmpfs:
-      - /app/temp:noexec,nosuid,size=1g
+      - /app/temp:noexec,nosuid,size=1g,mode=1777
 
 volumes:
   postgres_data:
