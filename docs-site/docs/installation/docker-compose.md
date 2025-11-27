@@ -183,6 +183,26 @@ docker run --rm \
 
 This downloads ~2.5GB of AI models.
 
+### Step 5.5: Configure Temporary Storage (Optional)
+
+All services automatically mount `/app/temp` as `tmpfs` to prevent temporary files from bloating `overlay2`. Default sizes:
+
+- `backend` – 4 GB
+- `celery-worker` – 20 GB (GPU/FFmpeg tasks)
+- `celery-download-worker` – 15 GB (YouTube downloads)
+- Other workers and `flower` – 1‑5 GB
+
+If your system has limited RAM or you need to persist temporary data between restarts, replace the `tmpfs` block in `docker-compose.yml` with a bind mount:
+
+```yaml
+services:
+  backend:
+    volumes:
+      - ./temp/backend:/app/temp
+```
+
+You can also set up cron cleanup for the host directory if long-term storage is needed.
+
 ### Step 6: Start OpenTranscribe
 
 **For Development (source code):**

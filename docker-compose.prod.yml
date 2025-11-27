@@ -9,18 +9,15 @@
 services:
   backend:
     image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    # build: removed - use pre-built image from Docker Hub
+    # If image doesn't exist, it will be pulled automatically
+    pull_policy: missing
     # No volumes needed - temp files live in container only
 
   celery-worker:
     image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    # All backend services share the same image - saves overlay2 space
+    pull_policy: missing
     volumes:
       # Production: only model cache, no code mounts
       - ${MODEL_CACHE_DIR:-./models}/huggingface:/home/appuser/.cache/huggingface
@@ -31,10 +28,8 @@ services:
 
   celery-download-worker:
     image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    # Shares same image as other backend services
+    pull_policy: missing
     volumes:
       # Production: only model cache for download worker
       - ${MODEL_CACHE_DIR:-./models}/huggingface:/home/appuser/.cache/huggingface
@@ -42,34 +37,26 @@ services:
 
   celery-cpu-worker:
     image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    # Shares same image as other backend services
+    pull_policy: missing
     # No volumes needed - CPU worker doesn't need model cache
 
   celery-nlp-worker:
     image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    # Shares same image as other backend services
+    pull_policy: missing
     # No volumes needed - NLP worker doesn't need model cache
 
   celery-beat:
     image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    # Shares same image as other backend services
+    pull_policy: missing
     # No volumes needed - scheduler state lives in container only
 
   frontend:
     image: davidamacey/opentranscribe-frontend:latest
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod  # Production build with NGINX
-    pull_policy: always
+    # build: removed - use pre-built image from Docker Hub
+    pull_policy: missing
     ports:
       - "${FRONTEND_PORT:-5173}:8080"  # Production NGINX port
     environment:
@@ -83,24 +70,17 @@ services:
 
   flower:
     image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    # Shares same image as other backend services
+    pull_policy: missing
 
   # GPU Scaled Worker - Production overrides
-  # NOTE: No 'scale' parameter here - base has scale: 0, gpu-scale.yml sets scale: 1
-  # This overlay only provides production-specific settings (image, build, pull_policy)
+  # Base definition in docker-compose.yml, GPU config in docker-compose.gpu-scale.yml
   celery-worker-gpu-scaled:
-    image: davidamacey/opentranscribe-backend:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod  # Production build
-    pull_policy: always
+    image: davidamacey/opentranscribe-backend:latest  # Shares same image as other backend services
+    pull_policy: missing
     volumes:
-      # Production: Model cache directories
+      # Production: Model cache directories only (no code mount)
       - ${MODEL_CACHE_DIR:-./models}/huggingface:/home/appuser/.cache/huggingface
       - ${MODEL_CACHE_DIR:-./models}/torch:/home/appuser/.cache/torch
       - ${MODEL_CACHE_DIR:-./models}/nltk_data:/home/appuser/.cache/nltk_data
       - ${MODEL_CACHE_DIR:-./models}/sentence-transformers:/home/appuser/.cache/sentence-transformers
-      # No temp volume needed - temp files live in container only

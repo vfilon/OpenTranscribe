@@ -19,17 +19,19 @@ show_help() {
   echo "Usage: ./opentr.sh [command] [options]"
   echo ""
   echo "Basic Commands:"
-  echo "  start [dev|prod] [--build] [--gpu-scale]  - Start the application (dev mode by default)"
-  echo "                                               --build: Build prod images locally (test before push)"
-  echo "                                               --gpu-scale: Enable multi-GPU worker scaling"
+  echo "  start [dev|prod] [--build] [--pull] [--gpu-scale]  - Start the application (dev mode by default)"
+  echo "                                                        --build: Build prod images locally (test before push)"
+  echo "                                                        --pull:  Force pull prod images from Docker Hub"
+  echo "                                                        --gpu-scale: Enable multi-GPU worker scaling"
   echo "  stop                                       - Stop OpenTranscribe containers"
   echo "  status                                     - Show container status"
   echo "  logs [service]                             - View logs (all services by default)"
   echo ""
   echo "Reset & Database Commands:"
-  echo "  reset [dev|prod] [--build] [--gpu-scale]  - Reset and reinitialize (deletes all data!)"
-  echo "                                               --build: Build prod images locally (test before push)"
-  echo "                                               --gpu-scale: Enable multi-GPU worker scaling"
+  echo "  reset [dev|prod] [--build] [--pull] [--gpu-scale]   - Reset and reinitialize (deletes all data!)"
+  echo "                                                        --build: Build prod images locally (test before push)"
+  echo "                                                        --pull:  Force pull prod images from Docker Hub"
+  echo "                                                        --gpu-scale: Enable multi-GPU worker scaling"
   echo "  backup              - Create a database backup"
   echo "  restore [file]      - Restore database from backup"
   echo ""
@@ -59,6 +61,25 @@ show_help() {
   echo "  ./opentr.sh logs backend             # View backend logs"
   echo "  ./opentr.sh restart-backend          # Restart backend services only"
   echo ""
+}
+
+# Build production images locally (backend + frontend)
+build_prod_images() {
+  echo "🥽 Building production Docker images locally..."
+
+  echo "🧱 Building backend image (davidamacey/opentranscribe-backend:latest)..."
+  docker build -t davidamacey/opentranscribe-backend:latest -f backend/Dockerfile.prod backend || {
+    echo "❌ Backend image build failed"
+    exit 1
+  }
+
+  echo "🧱 Building frontend image (davidamacey/opentranscribe-frontend:latest)..."
+  docker build -t davidamacey/opentranscribe-frontend:latest -f frontend/Dockerfile.prod frontend || {
+    echo "❌ Frontend image build failed"
+    exit 1
+  }
+
+  echo "✅ Local production images built successfully"
 }
 
 # Function to detect and configure hardware
@@ -128,11 +149,16 @@ start_app() {
   # Parse optional flags
   BUILD_FLAG=""
   GPU_SCALE_FLAG=""
+  PULL_FLAG=""
 
   while [ $# -gt 0 ]; do
     case "$1" in
       --build)
         BUILD_FLAG="--build"
+        shift
+        ;;
+      --pull)
+        PULL_FLAG="--pull"
         shift
         ;;
       --gpu-scale)
@@ -145,6 +171,10 @@ start_app() {
         ;;
     esac
   done
+
+  if [ -n "$GPU_SCALE_FLAG" ]; then
+    export COMPOSE_PROFILES="gpu-scale"
+  fi
 
   echo "🚀 Starting OpenTranscribe in ${ENVIRONMENT} mode..."
 
@@ -175,10 +205,20 @@ start_app() {
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.prod.yml"
     # Note: INIT_DB_PATH uses default ./database/init_db.sql (same for all modes)
 
+    if [ "$PULL_FLAG" = "--pull" ]; then
+      echo "⬇️  Forcing pull of latest production images from Docker Hub..."
+      # shellcheck disable=SC2086
+      docker compose $COMPOSE_FILES pull || {
+        echo "❌ Failed to pull production images"
+        exit 1
+      }
+    fi
+
     if [ "$BUILD_FLAG" = "--build" ]; then
       echo "🔄 Starting services in PRODUCTION mode with LOCAL BUILD (testing before push)..."
-      echo "⚠️  Note: This builds production images locally instead of pulling from Docker Hub"
-      BUILD_CMD="--build"
+      echo "⚠️  Building backend and frontend images locally instead of pulling from Docker Hub"
+      build_prod_images
+      BUILD_CMD=""
     else
       echo "🔄 Starting services in PRODUCTION mode (pulling from Docker Hub)..."
       BUILD_CMD=""
@@ -239,11 +279,16 @@ reset_and_init() {
   # Parse optional flags
   BUILD_FLAG=""
   GPU_SCALE_FLAG=""
+  PULL_FLAG=""
 
   while [ $# -gt 0 ]; do
     case "$1" in
       --build)
         BUILD_FLAG="--build"
+        shift
+        ;;
+      --pull)
+        PULL_FLAG="--pull"
         shift
         ;;
       --gpu-scale)
@@ -256,6 +301,10 @@ reset_and_init() {
         ;;
     esac
   done
+
+  if [ -n "$GPU_SCALE_FLAG" ]; then
+    export COMPOSE_PROFILES="gpu-scale"
+  fi
 
   echo "🔄 Running reset and initialize for OpenTranscribe in ${ENVIRONMENT} mode..."
 
@@ -280,10 +329,20 @@ reset_and_init() {
     COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.prod.yml"
     # Note: INIT_DB_PATH uses default ./database/init_db.sql (same for all modes)
 
+    if [ "$PULL_FLAG" = "--pull" ]; then
+      echo "⬇️  Forcing pull of latest production images from Docker Hub..."
+      # shellcheck disable=SC2086
+      docker compose $COMPOSE_FILES pull || {
+        echo "❌ Failed to pull production images"
+        exit 1
+      }
+    fi
+
     if [ "$BUILD_FLAG" = "--build" ]; then
       echo "🔄 Resetting in PRODUCTION mode with LOCAL BUILD (testing before push)..."
-      echo "⚠️  Note: This builds production images locally instead of pulling from Docker Hub"
-      BUILD_CMD="--build"
+      echo "⚠️  Building backend and frontend images locally instead of pulling from Docker Hub"
+      build_prod_images
+      BUILD_CMD=""
     else
       echo "🔄 Resetting in PRODUCTION mode (pulling from Docker Hub)..."
       BUILD_CMD=""

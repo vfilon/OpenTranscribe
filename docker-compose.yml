@@ -113,6 +113,8 @@ services:
       - MODELS_DIRECTORY=/app/models
       - MODEL_BASE_DIR=/app/models
       - TEMP_DIR=/app/temp
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=4g
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
@@ -155,6 +157,8 @@ services:
       - MODELS_DIRECTORY=/app/models
       - MODEL_BASE_DIR=/app/models
       - TEMP_DIR=/app/temp
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=20g
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -186,6 +190,8 @@ services:
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=15g
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -214,6 +220,8 @@ services:
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=5g
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -242,6 +250,8 @@ services:
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=5g
     healthcheck:
       test: ["CMD-SHELL", "celery -A app.core.celery inspect ping -d celery@$$HOSTNAME"]
       interval: 30s
@@ -270,6 +280,8 @@ services:
       - OPENSEARCH_HOST=opensearch
       - OPENSEARCH_PORT=9200
       - TEMP_DIR=/app/temp
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=1g
     healthcheck:
       test: ["CMD-SHELL", "python3 -c 'import os,time; exit(0 if os.path.exists(\"/app/celerybeat-schedule\") and time.time()-os.path.getmtime(\"/app/celerybeat-schedule\")<300 else 1)'"]
       interval: 30s
@@ -280,10 +292,37 @@ services:
       - postgres
       - redis
 
-  # GPU Scaled Worker - Full configuration provided by docker-compose.gpu-scale.yml
-  # This service provides high-throughput transcription using multiple concurrent workers
-  # on a single GPU device. See docker-compose.gpu-scale.yml for full service definition.
-  # Usage: ./opentr.sh start dev --gpu-scale
+  # GPU Scaled Worker - Base definition
+  # Activated only with --gpu-scale flag (profile: gpu-scale)
+  # Specific settings (command, GPU config) in docker-compose.gpu-scale.yml
+  # Image/build/volumes in override.yml (dev), prod.yml, or offline.yml
+  celery-worker-gpu-scaled:
+    container_name: ${COMPOSE_PROJECT_NAME:-opentranscribe}-celery-worker-gpu-scaled
+    profiles:
+      - gpu-scale  # Only activated with --gpu-scale flag
+    scale: 0  # Disabled by default, gpu-scale.yml sets scale: 1
+    restart: always
+    env_file: .env
+    environment:
+      # Internal Docker network settings (same as other workers)
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - MINIO_HOST=minio
+      - MINIO_PORT=9000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENSEARCH_HOST=opensearch
+      - OPENSEARCH_PORT=9200
+      - MODELS_DIRECTORY=/app/models
+      - MODEL_BASE_DIR=/app/models
+      - TEMP_DIR=/app/temp
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=20g
+    depends_on:
+      - postgres
+      - redis
+      - minio
+      - opensearch
 
   frontend:
     container_name: opentranscribe-frontend
@@ -316,6 +355,8 @@ services:
     volumes:
       # Flower only needs persistent database for monitoring, not AI models
       - flower_data:/app
+    tmpfs:
+      - /app/temp:noexec,nosuid,size=1g
 
 volumes:
   postgres_data:
