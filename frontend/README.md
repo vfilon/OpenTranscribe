@@ -49,6 +49,7 @@ A modern Svelte-based frontend for the OpenTranscribe AI-powered transcription a
 - **Advanced Upload System** - Floating, draggable upload manager with concurrent processing
 - **Upload Progress Tracking** - Real-time progress with estimated time remaining
 - **Intelligent Upload Management** - Queue control, retry logic, and duplicate detection
+- **Universal Media URL Support** - Download videos from 1000+ platforms (YouTube, Vimeo, Twitter/X, TikTok, etc.) via URL input
 - **Media Player** - Custom video/audio player with transcript synchronization
 - **Full-Screen Transcript View** - Dedicated modal for reading and searching long transcripts
 - **Enhanced Analytics Display** - Server-computed speaker analytics with comprehensive metrics visualization
@@ -129,7 +130,7 @@ frontend/
 - **`NotificationsPanel.svelte`** - Real-time notification display
 
 #### File Management
-- **`FileUploader.svelte`** - Drag-and-drop file upload with progress
+- **`FileUploader.svelte`** - Drag-and-drop file upload with progress and universal media URL support (YouTube, Vimeo, Twitter/X, TikTok, etc.)
 - **`UploadManager.svelte`** - **NEW**: Floating, draggable upload manager with real-time progress
 - **`UploadProgress.svelte`** - **NEW**: Individual upload progress tracking with retry/cancel
 - **`FileHeader.svelte`** - File metadata and action buttons

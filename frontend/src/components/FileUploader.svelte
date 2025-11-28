@@ -62,7 +62,7 @@
   let token = ''; // Store the auth token
 
   // URL processing state (no inline messages - use toast notifications only)
-  let youtubeUrl = '';
+  let mediaUrl = '';
   let processingUrl = false;
 
   // Local recording UI state
@@ -151,8 +151,8 @@
     uploadError: { error: string };
   }>();
 
-  // URL validation regex for YouTube (supports both videos and playlists)
-  const YOUTUBE_URL_REGEX = /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.*$/;
+  // URL validation regex for media URLs (backend handles specific support)
+  const URL_REGEX = /^https?:\/\/.+$/;
 
   // Track allowed file types with more comprehensive list
   const allowedTypes = [
@@ -1090,7 +1090,7 @@
 
   // Reset URL processing state
   function resetUrlState() {
-    youtubeUrl = '';
+    mediaUrl = '';
     processingUrl = false;
     // URL state reset (no inline messages)
     currentFileId = null;
@@ -1125,9 +1125,9 @@
   }
 
 
-  // Validate YouTube URL
-  function isValidYouTubeUrl(url: string): boolean {
-    return YOUTUBE_URL_REGEX.test(url.trim());
+  // Validate URL
+  function isValidUrl(url: string): boolean {
+    return URL_REGEX.test(url.trim());
   }
 
   // Paste URL from clipboard - optimized for single-click experience
@@ -1150,7 +1150,7 @@
       const text = await navigator.clipboard.readText();
 
       if (text && text.trim()) {
-        youtubeUrl = text.trim();
+        mediaUrl = text.trim();
         // Validation passed
         toastStore.success('✓ Pasted from clipboard');
       } else {
@@ -1174,7 +1174,7 @@
 
   // Seamless fallback that focuses input for keyboard paste
   function fallbackToKeyboardPaste() {
-    const input = document.getElementById('youtube-url') as HTMLInputElement;
+    const input = document.getElementById('media-url') as HTMLInputElement;
     if (input) {
       input.focus();
       input.select(); // Select any existing text for easy replacement
@@ -1188,15 +1188,15 @@
     }
   }
 
-  // Process YouTube URL
-  async function processYouTubeUrl() {
-    if (!youtubeUrl.trim()) {
-      toastStore.error('Please enter a YouTube URL');
+  // Process Media URL
+  async function processUrl() {
+    if (!mediaUrl.trim()) {
+      toastStore.error('Please enter a media URL');
       return;
     }
 
-    if (!isValidYouTubeUrl(youtubeUrl)) {
-      toastStore.error('Please enter a valid YouTube URL (e.g., https://www.youtube.com/watch?v=...)');
+    if (!isValidUrl(mediaUrl)) {
+      toastStore.error('Please enter a valid URL (e.g., https://site.com/video)');
       return;
     }
 
@@ -1210,14 +1210,14 @@
     try {
       // Call the API endpoint directly for immediate processing
       const response = await axiosInstance.post('/files/process-url', {
-        url: youtubeUrl.trim()
+        url: mediaUrl.trim()
       });
 
       // Get the response data
       const responseData = response.data;
 
       // Clear form immediately after successful submission
-      youtubeUrl = '';
+      mediaUrl = '';
 
       // Check if this is a playlist or single video response
       if (responseData.type === 'playlist') {
@@ -1234,23 +1234,23 @@
         dispatch('uploadComplete', { fileId: mediaFile.id, isUrl: true });
 
         // Show success toast with more descriptive message
-        toastStore.success(`YouTube video "${mediaFile.title || 'video'}" added to processing queue`);
+        toastStore.success(`Video "${mediaFile.title || 'video'}" added to processing queue`);
       }
 
     } catch (error: unknown) {
-      // YouTube processing error - show user-friendly messages via toast only
+      // URL processing error - show user-friendly messages via toast only
       const axiosError = error as any;
 
       // Handle different types of errors
       if (axiosError.response?.status === 409) {
         // Duplicate video
-        toastStore.warning(axiosError.response.data.detail || 'This YouTube video already exists in your library');
+        toastStore.warning(axiosError.response.data.detail || 'This video already exists in your library');
       } else if (axiosError.response?.status === 400) {
         // Bad request (invalid URL, etc.)
-        toastStore.error(axiosError.response.data.detail || 'Invalid YouTube URL');
+        toastStore.error(axiosError.response.data.detail || 'Invalid URL');
       } else {
         // Other errors
-        toastStore.error('Failed to process YouTube URL. Please try again.');
+        toastStore.error('Failed to process URL. Please try again.');
       }
     } finally {
       processingUrl = false;
@@ -1403,13 +1403,13 @@
       class="tab-button {activeTab === 'url' ? 'active' : ''}"
       on:click={() => switchTab('url')}
       disabled={!$isOnline}
-      title={$isOnline ? 'Download video from YouTube URL' : 'Internet connection required for YouTube downloads'}
+      title={$isOnline ? 'Download video from Media URL' : 'Internet connection required for downloads'}
     >
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
       </svg>
-      YouTube URL
+      Media URL
     </button>
     <button
       class="tab-button {activeTab === 'record' ? 'active' : ''}"
@@ -1562,7 +1562,7 @@
     {/if}
     </div>
   {:else if activeTab === 'url'}
-    <!-- YouTube URL Tab -->
+    <!-- Media URL Tab -->
     <div class="url-input-container">
       {#if !$isOnline}
         <div class="message error-message">
@@ -1575,25 +1575,25 @@
           </div>
           <div class="message-content">
             <strong>No Internet Connection</strong><br />
-            YouTube downloads require an active internet connection. Please check your connection and try again.
+            Media downloads require an active internet connection. Please check your connection and try again.
           </div>
         </div>
       {/if}
       <div class="url-input-section">
-        <label for="youtube-url" class="url-label">
+        <label for="media-url" class="url-label">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"></path>
             <polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"></polygon>
           </svg>
-          YouTube URL
+          Media URL
         </label>
         <div class="url-input-wrapper">
           <input
-            id="youtube-url"
+            id="media-url"
             type="url"
-            placeholder="https://www.youtube.com/watch?v=..."
+            placeholder="https://www.youtube.com/watch?v=... or other media URL"
             class="url-input"
-            bind:value={youtubeUrl}
+            bind:value={mediaUrl}
             disabled={processingUrl || !$isOnline}
           />
           <button
@@ -1625,22 +1625,22 @@
           </button>
           <button
             class="process-url-button"
-            on:click={processYouTubeUrl}
-            disabled={processingUrl || !youtubeUrl.trim() || !$isOnline}
-            title={$isOnline ? "Process YouTube video for transcription" : "Internet connection required"}
+            on:click={processUrl}
+            disabled={processingUrl || !mediaUrl.trim() || !$isOnline}
+            title={$isOnline ? "Process media for transcription" : "Internet connection required"}
           >
-            {processingUrl ? 'Processing...' : 'Process Video'}
+            {processingUrl ? 'Processing...' : 'Process Media'}
           </button>
         </div>
       </div>
 
       <div class="url-info">
         <p class="url-description">
-          Enter a YouTube video URL to download and transcribe the video automatically.
+          Enter a video URL (YouTube, Vimeo, Twitter/X, TikTok, etc.) to download and transcribe automatically.
           The video will be processed and available in your media library just like uploaded files.
         </p>
         <div class="supported-formats">
-          <p>Supported: YouTube videos and playlists</p>
+          <p>Supported: YouTube, Vimeo, Twitter, TikTok, and many more</p>
         </div>
       </div>
     </div>

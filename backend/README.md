@@ -226,7 +226,8 @@ backend/
 - **Enhanced File Processing**:
   - Improved upload handling with concurrency control
   - Better streaming support for large files
-  - Enhanced URL processing with metadata extraction
+  - Universal media URL processing supporting 1000+ platforms (YouTube, Vimeo, Twitter/X, TikTok, etc.) via yt-dlp
+  - Automatic source detection and metadata extraction from any supported platform
   - POST `/{file_id}/analytics/refresh` - Refresh analytics computation for a media file
 
 - **Advanced Speaker Management**:
@@ -254,7 +255,7 @@ backend/
 ├── /files             # File management with streaming support
 ├── /files/streaming   # Streaming and upload progress endpoints
 ├── /files/upload      # Enhanced upload handling with concurrency
-├── /files/url-processing # URL processing for video links
+├── /files/url-processing # Universal media URL processing (YouTube, Vimeo, Twitter, TikTok, etc.)
 ├── /users             # User management
 ├── /user-settings     # User-specific settings management (recording preferences)
 ├── /comments          # Comment system
@@ -326,7 +327,7 @@ alembic revision --autogenerate    # Generate migration
 ### Available Tasks
 - **Transcription**: WhisperX + speaker diarization with voice fingerprinting
 - **Speaker Matching**: Cross-video speaker identification and profile matching
-- **YouTube Processing**: Enhanced URL processing for video links with metadata extraction
+- **Media URL Processing**: Universal video download from multiple sources (YouTube, Vimeo, Twitter/X, TikTok, and 1000+ other platforms) via yt-dlp with metadata extraction
 - **Analysis**: Transcript analysis and metrics
 - **Summarization**: Multi-provider LLM-powered summarization with BLUF format
 - **Notification System**: Real-time WebSocket updates for all processing stages

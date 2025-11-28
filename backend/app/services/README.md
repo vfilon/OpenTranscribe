@@ -40,7 +40,8 @@ services/
 ├── profile_embedding_service.py       # Voice embedding and speaker similarity service
 ├── smart_speaker_suggestion_service.py # Intelligent speaker suggestion consolidation service
 ├── speaker_status_service.py          # Speaker verification status management service
-└── task_filtering_service.py          # Task and data filtering optimization service
+├── task_filtering_service.py          # Task and data filtering optimization service
+└── youtube_service.py                 # Universal media URL processing (YouTube, Vimeo, Twitter/X, TikTok, etc.)
 ```
 
 ## 🔧 Service Design Patterns
@@ -497,6 +498,100 @@ class ErrorCategorizationService:
 - **User-Friendly Suggestions**: Actionable guidance for error resolution
 - **Retry Guidance**: Determine if errors are retryable
 - **Category-Specific Advice**: Tailored suggestions based on error type
+
+## 🎬 YouTube Service (`youtube_service.py`)
+
+### Purpose
+Provides universal media download and processing from 1000+ video platforms (YouTube, Vimeo, Twitter/X, TikTok, etc.) using yt-dlp. Handles URL validation, video downloading, metadata extraction, and integration with the media processing pipeline.
+
+### Key Operations
+```python
+class YouTubeService:
+    def is_valid_youtube_url(self, url: str) -> bool:
+        """Validate if URL is a valid URL for processing (supports any HTTP/HTTPS URL)."""
+        # Accepts any URL and lets yt-dlp handle platform-specific validation
+    
+    def extract_video_info(self, url: str) -> dict[str, Any]:
+        """Extract video metadata without downloading."""
+        # Uses yt-dlp to extract metadata from any supported platform
+    
+    def download_video(self, url: str, output_path: str, progress_callback: Optional[Callable] = None) -> dict[str, Any]:
+        """Download video from any supported platform URL."""
+        # Downloads video with best quality H.264 codec for browser compatibility
+    
+    def process_youtube_url_sync(self, url: str, db: Session, user: User, media_file: MediaFile, progress_callback: Optional[Callable] = None) -> MediaFile:
+        """Process a media URL by downloading and updating MediaFile record."""
+        # Complete pipeline: download → metadata extraction → storage → database update
+```
+
+### Supported Platforms
+The service supports **1000+ video platforms** via yt-dlp, including:
+- **YouTube** - Videos and playlists
+- **Vimeo** - Video hosting platform
+- **Twitter/X** - Video tweets and spaces
+- **TikTok** - Short-form videos
+- **Instagram** - Video posts and reels
+- **Facebook** - Video content
+- **Twitch** - Live streams and clips
+- **And 1000+ more platforms** - See [yt-dlp supported sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
+
+### Features
+- **Universal URL Support**: Accepts any HTTP/HTTPS URL and automatically detects the platform
+- **Automatic Source Detection**: Identifies the platform from URL and extracts appropriate metadata
+- **Metadata Extraction**: Extracts title, description, uploader, duration, and other metadata
+- **Quality Optimization**: Downloads best H.264 quality for maximum browser compatibility
+- **Progress Tracking**: Real-time download progress with callbacks
+- **Thumbnail Handling**: Downloads and stores video thumbnails when available
+- **Playlist Support**: Handles YouTube playlists with batch processing
+- **Error Handling**: Comprehensive error handling with user-friendly messages
+
+### Usage Example
+```python
+# In API endpoint
+@router.post("/files/process-url")
+async def process_media_url(
+    request_data: URLProcessingRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    youtube_service = YouTubeService()
+    
+    # Validate URL (accepts any HTTP/HTTPS URL)
+    if not youtube_service.is_valid_youtube_url(request_data.url):
+        raise HTTPException(status_code=400, detail="Invalid URL")
+    
+    # Extract video info
+    video_info = youtube_service.extract_video_info(request_data.url)
+    
+    # Process and download
+    media_file = youtube_service.process_youtube_url_sync(
+        url=request_data.url,
+        db=db,
+        user=current_user,
+        media_file=placeholder_media_file
+    )
+    
+    return media_file
+```
+
+### Technical Details
+- **Library**: Uses `yt-dlp` (fork of youtube-dl) for universal platform support
+- **Format Selection**: Prioritizes H.264 codec for maximum browser compatibility
+- **File Size Limit**: 15GB maximum (matches upload limit)
+- **Duration Limit**: 4 hours maximum per video
+- **Output Format**: MP4 with web-compatible encoding
+- **Metadata Storage**: Stores platform-specific metadata in `metadata_raw` field
+- **Source Tracking**: Automatically detects and stores platform source (e.g., "vimeo", "twitter", "youtube")
+
+### Error Handling
+```python
+try:
+    video_info = youtube_service.extract_video_info(url)
+except HTTPException as e:
+    # Platform not supported or URL invalid
+    # Returns 400 with descriptive error message
+    pass
+```
 
 ## 📋 Task Filtering Service (`task_filtering_service.py`)
 

@@ -36,13 +36,13 @@ router = APIRouter()
 
 # Request model for URL processing
 class URLProcessingRequest(BaseModel):
-    """Request model for processing YouTube URLs (videos or playlists)."""
+    """Request model for processing media URLs (YouTube, Vimeo, etc.)."""
 
     url: str = Field(
-        description="YouTube video or playlist URL",
+        description="Video or playlist URL (YouTube, Vimeo, etc.)",
         examples=[
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "https://youtube.com/playlist?list=PLClBBDzHMVijJfoN2EY_3OpmHfRIv4eGO",
+            "https://vimeo.com/123456789",
         ],
         min_length=1,
     )
@@ -81,26 +81,23 @@ YOUTUBE_URL_PATTERN = re.compile(
 
 
 def normalize_youtube_url(url: str) -> str:
-    """Normalize YouTube URL to standard format for duplicate detection.
+    """Normalize YouTube URL to standard format. Returns original URL if not YouTube.
 
     Extracts the video ID or playlist ID from various YouTube URL formats and converts them
     to a canonical format for consistent duplicate detection and processing.
+    For non-YouTube URLs, returns the URL as is.
 
     Args:
-        url: YouTube URL in any supported format (watch, embed, short, playlist, etc.).
+        url: URL in any supported format.
 
     Returns:
-        str: Normalized YouTube URL in standard format.
-             Video format: "https://www.youtube.com/watch?v={video_id}"
-             Playlist format: "https://www.youtube.com/playlist?list={playlist_id}"
-
-    Example:
-        >>> normalize_youtube_url("https://youtu.be/dQw4w9WgXcQ")
-        "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        >>> normalize_youtube_url("https://youtube.com/playlist?list=PLxxx&si=yyy")
-        "https://www.youtube.com/playlist?list=PLxxx"
+        str: Normalized YouTube URL or original URL.
     """
     url = url.strip()
+
+    # Only normalize YouTube URLs
+    if "youtube.com" not in url and "youtu.be" not in url:
+        return url
 
     # Check if it's a playlist URL first
     playlist_match = re.search(r"[?&]list=([\w\-_]+)", url)
@@ -172,7 +169,7 @@ async def process_youtube_url(
 
         if not youtube_service.is_valid_youtube_url(normalized_url):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid YouTube URL"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid URL"
             )
 
         # Check if URL is a playlist
@@ -210,7 +207,7 @@ async def process_youtube_url(
         try:
             video_info = youtube_service.extract_video_info(normalized_url)
             youtube_id = video_info.get("id")
-            video_title = video_info.get("title", "YouTube Video")
+            video_title = video_info.get("title", "Video")
         except Exception as e:
             logger.error(f"Error extracting video info from {normalized_url}: {e}")
             raise HTTPException(
@@ -221,7 +218,7 @@ async def process_youtube_url(
         if not youtube_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Could not extract YouTube video ID",
+                detail="Could not extract video ID",
             )
 
         # Check for existing video with same YouTube ID (early duplicate detection)
@@ -249,7 +246,7 @@ async def process_youtube_url(
 
         if existing_video:
             logger.info(
-                f"Found existing YouTube video with ID {youtube_id} for user {current_user.id}: "
+                f"Found existing video with ID {youtube_id} for user {current_user.id}: "
                 f"MediaFile ID {existing_video.id}, status: {existing_video.status}"
             )
             # Provide different messages based on video status
@@ -263,12 +260,12 @@ async def process_youtube_url(
             elif existing_video.status in [FileStatus.PENDING, FileStatus.PROCESSING]:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"This YouTube video is already being processed: {existing_video.title or existing_video.filename}",
+                    detail=f"This video is already being processed: {existing_video.title or existing_video.filename}",
                 )
             else:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"This YouTube video already exists in your library: {existing_video.title or existing_video.filename}",
+                    detail=f"This video already exists in your library: {existing_video.title or existing_video.filename}",
                 )
 
         # Create placeholder MediaFile record for immediate response

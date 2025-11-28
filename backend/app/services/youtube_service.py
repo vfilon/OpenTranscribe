@@ -37,6 +37,9 @@ YOUTUBE_URL_PATTERN = re.compile(
     r"^https?://(www\.)?(youtube\.com/(watch\?v=|embed/|v/|playlist\?list=)|youtu\.be/)[\w\-_]+.*$"
 )
 
+# Generic URL validation regex - supports any URL
+GENERIC_URL_PATTERN = re.compile(r"^https?://.+$")
+
 # YouTube playlist URL validation regex
 YOUTUBE_PLAYLIST_PATTERN = re.compile(
     r"^https?://(www\.)?youtube\.com/playlist\?list=([\w\-_]+).*$"
@@ -51,15 +54,17 @@ class YouTubeService:
 
     def is_valid_youtube_url(self, url: str) -> bool:
         """
-        Validate if URL is a valid YouTube URL (video or playlist).
+        Validate if URL is a valid URL for processing.
+        Now supports generic URLs (YouTube, Vimeo, etc.) via yt-dlp.
 
         Args:
             url: URL to validate
 
         Returns:
-            True if valid YouTube URL, False otherwise
+            True if valid URL, False otherwise
         """
-        return bool(YOUTUBE_URL_PATTERN.match(url.strip()))
+        # Accept any HTTP/HTTPS URL and let yt-dlp handle the specifics
+        return bool(GENERIC_URL_PATTERN.match(url.strip()))
 
     def is_playlist_url(self, url: str) -> bool:
         """
@@ -422,17 +427,20 @@ class YouTubeService:
 
     def _prepare_youtube_metadata(self, url: str, youtube_info: dict[str, Any]) -> dict[str, Any]:
         """
-        Prepare YouTube-specific metadata for storage.
+        Prepare metadata for storage.
 
         Args:
-            url: Original YouTube URL
+            url: Original URL
             youtube_info: Information extracted from yt-dlp
 
         Returns:
-            Dictionary with YouTube metadata
+            Dictionary with metadata
         """
+        # Use extractor as source if available, otherwise default to youtube for backward compatibility
+        source = youtube_info.get("extractor", "youtube").lower()
+        
         return {
-            "source": "youtube",
+            "source": source,
             "original_url": url,
             "youtube_id": youtube_info.get("id"),
             "youtube_title": youtube_info.get("title"),
