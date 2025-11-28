@@ -39,6 +39,12 @@ ctranslate2>=4.6.0
 # PyAnnote (compatible with NumPy 2.x and PyTorch 2.6+)
 pyannote.audio>=3.3.2
 
+# PyTorch ecosystem dependencies - fixed versions for compatibility
+# These are transitive dependencies but we pin them to avoid breaking changes
+pytorch-lightning==2.5.6
+torchmetrics==1.8.2
+pytorch-metric-learning==2.9.0
+
 # Supporting libraries
 omegaconf>=2.3.0
 ffmpeg-python>=0.2.0
