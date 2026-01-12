@@ -108,6 +108,23 @@ class Settings(BaseSettings):
     # These are system fallbacks for quick access when no user settings exist
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "")
 
+    # LDAP/Active Directory Configuration
+    LDAP_ENABLED: bool = os.getenv("LDAP_ENABLED", "false").lower() == "true"
+    LDAP_SERVER: str = os.getenv("LDAP_SERVER", "")
+    LDAP_PORT: int = int(os.getenv("LDAP_PORT", "636"))
+    LDAP_USE_SSL: bool = os.getenv("LDAP_USE_SSL", "true").lower() == "true"
+    LDAP_USE_TLS: bool = os.getenv("LDAP_USE_TLS", "false").lower() == "true"
+    LDAP_BIND_DN: str = os.getenv("LDAP_BIND_DN", "")
+    LDAP_BIND_PASSWORD: str = os.getenv("LDAP_BIND_PASSWORD", "")
+    LDAP_SEARCH_BASE: str = os.getenv("LDAP_SEARCH_BASE", "")
+    LDAP_USER_SEARCH_FILTER: str = os.getenv(
+        "LDAP_USER_SEARCH_FILTER", "(sAMAccountName={username})"
+    )
+    LDAP_EMAIL_ATTR: str = os.getenv("LDAP_EMAIL_ATTR", "mail")
+    LDAP_NAME_ATTR: str = os.getenv("LDAP_NAME_ATTR", "cn")
+    LDAP_TIMEOUT: int = int(os.getenv("LDAP_TIMEOUT", "10"))
+    LDAP_ADMIN_USERS: str = os.getenv("LDAP_ADMIN_USERS", "")
+
     # Quick access defaults for common providers
     VLLM_BASE_URL: str = os.getenv("VLLM_BASE_URL", "http://localhost:8012/v1")
     VLLM_MODEL_NAME: str = os.getenv("VLLM_MODEL_NAME", "gpt-oss")

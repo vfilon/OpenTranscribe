@@ -15,6 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.auth.direct_auth import create_access_token as direct_create_token
 from app.auth.direct_auth import direct_authenticate_user
+from app.auth.ldap_auth import ldap_authenticate
+from app.auth.ldap_auth import sync_ldap_user_to_db
 from app.core.config import settings
 from app.core.security import authenticate_user
 from app.core.security import get_password_hash
@@ -173,8 +175,8 @@ def _authenticate_testing_user(db: Session, username: str, password: str) -> str
     return str(user.uuid)  # Return UUID string for token
 
 
-def _authenticate_production_user(db: Session, username: str, password: str) -> tuple[str, dict]:
-    """Authenticate user in production environment.
+def _authenticate_ldap_user(db: Session, username: str, password: str) -> tuple[str, dict]:
+    """Authenticate user via LDAP/Active Directory.
 
     Args:
         db: Database session
@@ -187,56 +189,152 @@ def _authenticate_production_user(db: Session, username: str, password: str) -> 
     Raises:
         HTTPException: If authentication fails
     """
-    # Try direct auth first, then fall back to ORM
-    user_data = direct_authenticate_user(username, password)
+    if not settings.LDAP_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="LDAP authentication is not enabled",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    if user_data:
-        logger.info(f"Direct authentication successful for user: {username}")
-        # Get UUID from user_data or fallback to database lookup
-        if "uuid" in user_data:
-            user_uuid_str = user_data["uuid"]
+    ldap_user = ldap_authenticate(username, password)
+
+    if not ldap_user:
+        logger.warning(f"LDAP authentication failed for user: {username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    logger.info(f"LDAP authentication successful for user: {username}")
+
+    # Sync LDAP user to database
+    user = sync_ldap_user_to_db(db, ldap_user)
+
+    if not user.is_active:
+        logger.warning(f"LDAP user account is inactive: {username}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inactive user account",
+        )
+
+    user_data = {
+        "uuid": str(user.uuid),
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+    }
+
+    return str(user.uuid), user_data
+
+
+def _authenticate_production_user(db: Session, username: str, password: str) -> tuple[str, dict]:
+    """Authenticate user in production environment.
+
+    Hybrid authentication:
+    1. Try local authentication (database password)
+    2. If enabled, try LDAP authentication
+
+    Args:
+        db: Database session
+        username: Username to authenticate
+        password: Password to verify
+
+    Returns:
+        Tuple of (user_uuid_string, user_data_dict)
+
+    Raises:
+        HTTPException: If authentication fails
+    """
+    # Check if user exists in database by username (ldap_uid or email)
+    local_user = (
+        db.query(User).filter((User.email == username) | (User.ldap_uid == username)).first()
+    )
+
+    if local_user and local_user.auth_type == "local":
+        # Local user - try direct auth first, then ORM
+        user_data = direct_authenticate_user(username, password)
+
+        if user_data:
+            logger.info(f"Direct authentication successful for local user: {username}")
+            # Get UUID from user_data or fallback to database lookup
+            if "uuid" in user_data:
+                user_uuid_str = user_data["uuid"]
+            else:
+                # Direct auth returned integer ID, look up UUID
+                user = db.query(User).filter(User.id == user_data["id"]).first()
+                if not user:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="User not found",
+                    )
+                user_uuid_str = str(user.uuid)
+                user_data["uuid"] = user_uuid_str
+
+            is_active = user_data.get("is_active", True)
+
+            if not is_active:
+                logger.warning(f"Login attempt for inactive local user: {username}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Inactive user account",
+                )
+
+            return user_uuid_str, user_data
         else:
-            # Direct auth returned integer ID, look up UUID
-            user = db.query(User).filter(User.id == user_data["id"]).first()
+            # Fall back to ORM-based auth
+            logger.info(f"Direct auth failed, trying ORM auth for local user: {username}")
+            user = authenticate_user(db, username, password)
+
             if not user:
+                logger.warning(f"Failed login attempt for local user: {username}")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="User not found",
+                    detail="Incorrect username or password",
+                    headers={"WWW-Authenticate": "Bearer"},
                 )
-            user_uuid_str = str(user.uuid)
-            user_data["uuid"] = user_uuid_str
 
-        is_active = user_data.get("is_active", True)
+            if not user.is_active:
+                logger.warning(f"Login attempt for inactive local user: {username}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Inactive user account",
+                )
 
-        if not is_active:
-            logger.warning(f"Login attempt for inactive user: {username}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user account",
-            )
+            return str(user.uuid), {}
 
-        return user_uuid_str, user_data
-    else:
-        # Fall back to ORM-based auth
-        logger.info(f"Direct auth failed, trying ORM auth for: {username}")
-        user = authenticate_user(db, username, password)
+    # Try LDAP authentication
+    try:
+        return _authenticate_ldap_user(db, username, password)
+    except HTTPException as ldap_error:
+        # LDAP failed, check if there's a local user we might have missed
+        if not local_user:
+            # No user found in DB, re-raise LDAP error
+            raise
 
-        if not user:
-            logger.warning(f"Failed login attempt for user: {username}")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+        # User exists in DB but auth_type wasn't checked, try local auth as fallback
+        logger.info(f"LDAP failed, trying local auth as fallback for: {username}")
+        user_data = direct_authenticate_user(
+            local_user.email if local_user.email != username else username, password
+        )
 
-        if not user.is_active:
-            logger.warning(f"Login attempt for inactive user: {username}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user account",
-            )
+        if user_data:
+            logger.info(f"Local authentication successful as fallback: {username}")
+            if "uuid" in user_data:
+                return user_data["uuid"], user_data
+            else:
+                user_uuid_str = str(local_user.uuid)
+                user_data["uuid"] = user_uuid_str
+                return user_uuid_str, user_data
 
-        return str(user.uuid), {}
+        # All authentication methods failed
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 def _get_user_role(db: Session, user_uuid_str: str, user_data: dict = None) -> str:
@@ -319,6 +417,9 @@ def login_for_access_token(
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user
+
+    Note: When LDAP is enabled, local registration is still allowed for admin accounts.
+    Regular users should use LDAP authentication.
     """
     # Check if email already exists
     user_exists = db.query(User).filter(User.email == user_in.email).first()
@@ -329,12 +430,13 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
             detail="Email already registered",
         )
 
-    # Create new user
+    # Create new user with local authentication
     db_user = User(
         email=user_in.email,
         full_name=user_in.full_name,
         hashed_password=get_password_hash(user_in.password),
-        role="user",  # Default role
+        role="user",
+        auth_type="local",
         is_active=True,
         is_superuser=False,
     )
@@ -343,6 +445,9 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
 
+    logger.info(
+        f"New local user registered: {db_user.email} (auth_type={db_user.auth_type}, role={db_user.role})"
+    )
     return db_user
 
 
