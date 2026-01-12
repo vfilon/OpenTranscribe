@@ -117,9 +117,10 @@ class Settings(BaseSettings):
     LDAP_BIND_DN: str = os.getenv("LDAP_BIND_DN", "")
     LDAP_BIND_PASSWORD: str = os.getenv("LDAP_BIND_PASSWORD", "")
     LDAP_SEARCH_BASE: str = os.getenv("LDAP_SEARCH_BASE", "")
+    LDAP_USERNAME_ATTR: str = os.getenv("LDAP_USERNAME_ATTR", "sAMAccountName")
     LDAP_USER_SEARCH_FILTER: str = os.getenv(
-        "LDAP_USER_SEARCH_FILTER", "(sAMAccountName={username})"
-    )
+        "LDAP_USER_SEARCH_FILTER", "({username_attr}={username})"
+    ).replace("{username_attr}", os.getenv("LDAP_USERNAME_ATTR", "sAMAccountName"))
     LDAP_EMAIL_ATTR: str = os.getenv("LDAP_EMAIL_ATTR", "mail")
     LDAP_NAME_ATTR: str = os.getenv("LDAP_NAME_ATTR", "cn")
     LDAP_TIMEOUT: int = int(os.getenv("LDAP_TIMEOUT", "10"))

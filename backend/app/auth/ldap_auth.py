@@ -62,12 +62,12 @@ def ldap_authenticate(username: str, password: str) -> Optional[dict]:
 
     This function:
     1. Connects to AD using a service account
-    2. Searches for the user by sAMAccountName
+    2. Searches for the user by sAMAccountName (or email if username contains @)
     3. Attempts to bind as the user to verify credentials
     4. Extracts user attributes (email, full name)
 
     Args:
-        username: The username (sAMAccountName) to authenticate
+        username: The username (sAMAccountName) or email to authenticate
         password: The user's password
 
     Returns:
@@ -84,6 +84,12 @@ def ldap_authenticate(username: str, password: str) -> Optional[dict]:
     if not settings.LDAP_ENABLED:
         logger.warning("LDAP authentication attempted but LDAP is not enabled")
         return None
+
+    logger.info(f"LDAP authenticate called for: {username}")
+    if "@" in username:
+        ldap_username = username.split("@")[0]
+    else:
+        ldap_username = username
 
     try:
         server = _get_ldap_server()
@@ -103,7 +109,7 @@ def ldap_authenticate(username: str, password: str) -> Optional[dict]:
 
         # Step 2: Search for user by sAMAccountName
         search_filter = settings.LDAP_USER_SEARCH_FILTER.format(
-            username=_escape_ldap_filter(username)
+            username=_escape_ldap_filter(ldap_username)
         )
         attributes = [settings.LDAP_EMAIL_ATTR, settings.LDAP_NAME_ATTR]
 
@@ -114,12 +120,30 @@ def ldap_authenticate(username: str, password: str) -> Optional[dict]:
         )
 
         if not bind_conn.entries:
+            logger.debug(
+                f"User not found by {settings.LDAP_USERNAME_ATTR}={ldap_username}, trying email search"
+            )
+            email_search_filter = f"({settings.LDAP_EMAIL_ATTR}={_escape_ldap_filter(username)})"
+            bind_conn.search(
+                search_base=settings.LDAP_SEARCH_BASE,
+                search_filter=email_search_filter,
+                attributes=attributes,
+            )
+
+        if not bind_conn.entries:
             logger.warning(f"User not found in LDAP: {username}")
             bind_conn.unbind()
             return None
 
         user_entry = bind_conn.entries[0]
         logger.debug(f"Found user in LDAP: {user_entry}")
+
+        # Extract username attribute from entry
+        ldap_username_value = (
+            str(getattr(user_entry, settings.LDAP_USERNAME_ATTR, ldap_username))
+            if hasattr(user_entry, settings.LDAP_USERNAME_ATTR)
+            else ldap_username
+        )
 
         # Extract user attributes
         user_email = (
@@ -142,25 +166,27 @@ def ldap_authenticate(username: str, password: str) -> Optional[dict]:
         try:
             user_conn = Connection(
                 server,
-                user=user_entry.dn,
+                user=user_entry.entry_dn,
                 password=password,
                 auto_bind=AUTO_BIND_TLS_BEFORE_BIND if settings.LDAP_USE_SSL else True,
             )
-            logger.info(f"LDAP authentication successful for user: {username}")
+            logger.info(f"LDAP authentication successful for user: {ldap_username_value}")
             user_conn.unbind()
         except LDAPBindError as e:
-            logger.warning(f"LDAP password verification failed for user {username}: {str(e)}")
+            logger.warning(
+                f"LDAP password verification failed for user {ldap_username_value}: {str(e)}"
+            )
             bind_conn.unbind()
             return None
 
         # Step 4: Determine admin status
         admin_users = settings.LDAP_ADMIN_USERS.split(",") if settings.LDAP_ADMIN_USERS else []
-        is_admin = username.lower() in [u.lower().strip() for u in admin_users]
+        is_admin = ldap_username_value.lower() in [u.lower().strip() for u in admin_users]
 
         bind_conn.unbind()
 
         return {
-            "username": username,
+            "username": ldap_username_value,
             "email": user_email,
             "full_name": user_full_name,
             "is_admin": is_admin,

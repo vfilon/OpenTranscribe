@@ -289,12 +289,9 @@ def _authenticate_production_user(db: Session, username: str, password: str) -> 
             user = authenticate_user(db, username, password)
 
             if not user:
-                logger.warning(f"Failed login attempt for local user: {username}")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Incorrect username or password",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+                # Local auth failed, try LDAP as fallback (in case user switched to LDAP)
+                logger.info(f"Local auth failed for {username}, trying LDAP as fallback")
+                return _authenticate_ldap_user(db, username, password)
 
             if not user.is_active:
                 logger.warning(f"Login attempt for inactive local user: {username}")
