@@ -95,6 +95,11 @@ def update_current_user(
 
     # Hash password if it's provided
     if "password" in update_data:
+        if current_user.auth_type != "local":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot change password for non-local users",
+            )
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
 
     for field, value in update_data.items():
@@ -137,6 +142,11 @@ def update_user(
 
     # Hash password if it's provided
     if "password" in update_data:
+        if user.auth_type != "local":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot change password for non-local users",
+            )
         update_data["hashed_password"] = get_password_hash(update_data.pop("password"))
 
     # Remove current_password from update_data as it's not a model field
