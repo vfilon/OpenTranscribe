@@ -300,7 +300,15 @@ def _authenticate_production_user(db: Session, username: str, password: str) -> 
                     detail="Inactive user account",
                 )
 
-            return str(user.uuid), {}
+            user_data = {
+                "uuid": str(user.uuid),
+                "email": user.email,
+                "full_name": user.full_name,
+                "role": user.role,
+                "is_active": user.is_active,
+                "is_superuser": user.is_superuser,
+            }
+            return str(user.uuid), user_data
 
     # Try LDAP authentication
     try:

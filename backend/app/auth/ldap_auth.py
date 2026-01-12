@@ -85,7 +85,7 @@ def ldap_authenticate(username: str, password: str) -> Optional[dict]:
         logger.warning("LDAP authentication attempted but LDAP is not enabled")
         return None
 
-    logger.info(f"LDAP authenticate called for: {username}")
+    logger.debug(f"LDAP authenticate called for: {username}")
     if "@" in username:
         ldap_username = username.split("@")[0]
     else:
@@ -111,7 +111,11 @@ def ldap_authenticate(username: str, password: str) -> Optional[dict]:
         search_filter = settings.LDAP_USER_SEARCH_FILTER.format(
             username=_escape_ldap_filter(ldap_username)
         )
-        attributes = [settings.LDAP_EMAIL_ATTR, settings.LDAP_NAME_ATTR]
+        attributes = [
+            settings.LDAP_USERNAME_ATTR,
+            settings.LDAP_EMAIL_ATTR,
+            settings.LDAP_NAME_ATTR,
+        ]
 
         bind_conn.search(
             search_base=settings.LDAP_SEARCH_BASE,
