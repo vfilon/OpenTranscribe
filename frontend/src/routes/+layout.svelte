@@ -12,7 +12,7 @@
   // Import auth store
   import { authStore, isAuthenticated, initAuth, authReady } from "$stores/auth";
   import { theme } from "../stores/theme";
-  import { locale, t } from "../stores/locale";
+  import { locale } from "../stores/locale";
   import { llmStatusStore } from "../stores/llmStatus";
   import { networkStore } from "../stores/network";
 
@@ -90,7 +90,7 @@
     {/if}
   </div>
 {:else}
-  <div>{$t('app.loadingApplication')}</div>
+  <div class="loading-app">Loading...</div>
 {/if}
 
 <style>
@@ -114,5 +114,14 @@
     .content {
       padding: 2rem;
     }
+  }
+
+  .loading-app {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    color: var(--text-muted, #6c757d);
+    font-size: 1rem;
   }
 </style>
