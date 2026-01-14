@@ -31,7 +31,8 @@ LDAP_BIND_PASSWORD=your-service-account-password
 
 # Search base and filter
 LDAP_SEARCH_BASE=DC=domain,DC=com
-LDAP_USER_SEARCH_FILTER=(sAMAccountName={username})
+LDAP_USERNAME_ATTR=sAMAccountName  # Username attribute (sAMAccountName, uid, etc.)
+LDAP_USER_SEARCH_FILTER=({username_attr}={username})  # Uses LDAP_USERNAME_ATTR
 
 # User attributes
 LDAP_EMAIL_ATTR=mail
@@ -53,12 +54,40 @@ LDAP_ADMIN_USERS=admin1,admin2,john.doe
 - **LDAP_BIND_DN**: Distinguished Name of service account (must have read access to user objects)
 - **LDAP_BIND_PASSWORD**: Password for service account (stored in .env)
 - **LDAP_SEARCH_BASE**: Base DN for user searches (e.g., DC=domain,DC=com)
+- **LDAP_USERNAME_ATTR**: Username attribute for user search (default: `sAMAccountName`)
+  - Active Directory: `sAMAccountName`
+  - OpenLDAP: `uid`
 - **LDAP_USER_SEARCH_FILTER**: Filter to find users by username
+  - Format: `({username_attr}={username})` where `{username_attr}` is replaced by `LDAP_USERNAME_ATTR`
   - Active Directory: `(sAMAccountName={username})`
   - OpenLDAP: `(uid={username})`
 - **LDAP_EMAIL_ATTR**: Attribute containing user email (mail, userPrincipalName, etc.)
 - **LDAP_NAME_ATTR**: Attribute containing full name (cn, displayName, etc.)
 - **LDAP_ADMIN_USERS**: List of AD usernames that should automatically be admins
+
+### Username Attribute Configuration
+
+The `LDAP_USERNAME_ATTR` setting provides flexibility for different directory services:
+
+**Active Directory (default):**
+```env
+LDAP_USERNAME_ATTR=sAMAccountName
+LDAP_USER_SEARCH_FILTER=(sAMAccountName={username})
+```
+
+**OpenLDAP:**
+```env
+LDAP_USERNAME_ATTR=uid
+LDAP_USER_SEARCH_FILTER=(uid={username})
+```
+
+**Custom Attribute:**
+```env
+LDAP_USERNAME_ATTR=employeeId
+LDAP_USER_SEARCH_FILTER=(employeeId={username})
+```
+
+The system automatically replaces `{username_attr}` in `LDAP_USER_SEARCH_FILTER` with the value of `LDAP_USERNAME_ATTR`, allowing consistent filter configuration across different directory services.
 
 ## Authentication Flow
 
@@ -81,8 +110,9 @@ User exists in DB + auth_type = 'local'
 ```python
 LDAP Enabled OR user not found locally
   → Bind to AD with service account
-  → Search for user by sAMAccountName
-  → Extract email and cn attributes
+  → Search for user by LDAP_USERNAME_ATTR (or email if username contains @)
+  → If not found by username, try search by email address
+  → Extract email, username, and cn attributes
   → Bind as user to verify password
   → Create/update user in database
   → Return JWT token
@@ -105,21 +135,33 @@ User not in database
 ### Login Input Options
 
 Users can login with:
-- **Email address** (for local users)
+- **Email address** (for local users, also supported for LDAP users)
 - **Username/sAMAccountName** (for LDAP users)
 
 The system automatically handles both formats:
+
 ```bash
-# Local user login
+# Local user login (email-based)
 curl -X POST http://localhost:5174/api/auth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=admin@example.com&password=local_password"
 
-# LDAP user login
+# LDAP user login (username-based)
 curl -X POST http://localhost:5174/api/auth/token \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=john.doe&password=ad_password"
+
+# LDAP user login (email-based - extracts username before @)
+curl -X POST http://localhost:5174/api/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=john.doe@example.com&password=ad_password"
 ```
+
+**LDAP Email Login Support**:
+- When username contains `@`, the system extracts the part before `@` as the LDAP username
+- System first searches by `LDAP_USERNAME_ATTR` using extracted username
+- If not found, system searches by `LDAP_EMAIL_ATTR` using the full email
+- This provides flexibility for users who prefer email-based login
 
 ## User Creation
 
@@ -194,6 +236,40 @@ Check logs for:
 - Role changes
 - Authentication method used (direct vs LDAP)
 
+### Password Change Restrictions
+
+For security and consistency with directory services:
+
+- **LDAP users cannot change passwords** in OpenTranscribe
+  - Password changes must be done in AD/LDAP directory
+  - Frontend (`SettingsModal`) hides password change section for LDAP users
+  - API endpoint (`update_current_user`, `update_user`) rejects password changes for `auth_type='ldap'`
+
+- **Local users only** can change their password
+  - Both password change UI and API check user's `auth_type`
+  - Attempted password changes by LDAP users are rejected with appropriate error
+
+- **LDAP user password authentication blocked**
+  - Direct authentication checks user's `auth_type` before attempting password verification
+  - If `auth_type='ldap'`, authentication fails immediately with logged message
+  - LDAP users must use LDAP authentication flow
+
+**Frontend Implementation:**
+- `SettingsModal` component checks `user.auth_type === 'local'` before showing password change section
+- `UserManagementTable` component conditionally displays password reset options based on `auth_type`
+- Users with `auth_type='ldap'` see no password change options in UI
+
+**Backend Implementation:**
+- `direct_auth.py`: `direct_authenticate_user()` rejects LDAP users with clear log message
+- `users.py`: `update_current_user()` and `update_user()` validate `auth_type` before allowing password updates
+- Frontend receives appropriate error messages if password change is attempted for LDAP users
+
+This ensures:
+1. Passwords remain synchronized with AD/LDAP
+2. No confusion about password management responsibilities
+3. Security by preventing workarounds for password policies
+4. Clear user experience (LDAP users don't see password change options)
+
 ## Troubleshooting
 
 ### LDAP Connection Issues
@@ -242,9 +318,21 @@ ldapsearch -H ldaps://ad-server.domain.com:636 \
    - Verify user can log in to AD normally
 
 5. **"Direct auth failed, trying ORM auth"**
-   - This is expected fallback behavior
-   - Indicates direct DB connection issue
-   - ORM auth will be tried automatically
+    - This is expected fallback behavior
+    - Indicates direct DB connection issue
+    - ORM auth will be tried automatically
+
+6. **"Authentication failed: user is LDAP type, cannot use password auth"**
+    - User has `auth_type='ldap'` in database
+    - Password authentication is blocked for LDAP users
+    - Use LDAP authentication flow (not local password)
+    - If user should use local passwords, update `auth_type` to 'local' in database
+
+7. **"Password change not allowed for LDAP users"**
+    - LDAP users cannot change passwords in OpenTranscribe
+    - Password changes must be done in AD/LDAP directory
+    - Frontend hides password change options for LDAP users
+    - If user needs local password, update `auth_type` to 'local' in database
 
 ## Testing
 
@@ -348,14 +436,20 @@ WHERE email LIKE '%@domain.com';
 - [ ] Read-only service account created
 - [ ] Service account password stored securely
 - [ ] LDAP_ADMIN_USERS configured for admins
+- [ ] LDAP_USERNAME_ATTR configured correctly for your directory
 - [ ] Firewall allows outbound LDAP connections
-- [ ] Test authentication with real AD users
+- [ ] Test authentication with real AD users (username-based)
+- [ ] Test authentication with real AD users (email-based)
 - [ ] Test authentication with local users
 - [ ] Verify audit logging is working
 - [ ] Monitor LDAP connection errors in logs
 - [ ] Verify direct auth fallback works
 - [ ] Check UUID-based token validation
 - [ ] Test role updates via LDAP_ADMIN_USERS
+- [ ] Verify LDAP users cannot change passwords in UI
+- [ ] Verify LDAP users cannot change passwords via API
+- [ ] Verify password change UI only shows for local users
+- [ ] Test LDAP authentication with email containing @ symbol
 
 ## Implementation Details
 
@@ -376,11 +470,11 @@ backend/app/api/endpoints/
 **ldap_auth.py:**
 - `_escape_ldap_filter()`: Prevents LDAP injection attacks
 - `_get_ldap_server()`: Creates configured LDAP server object
-- `ldap_authenticate()`: Authenticates user against AD
+- `ldap_authenticate()`: Authenticates user against AD (supports username or email)
 - `sync_ldap_user_to_db()`: Creates/updates user from LDAP data
 
 **direct_auth.py:**
-- `direct_authenticate_user()`: Direct DB authentication (bypasses ORM)
+- `direct_authenticate_user()`: Direct DB authentication (bypasses ORM, includes auth_type check)
 - `verify_password()`: Password verification with bcrypt_sha256
 - `create_access_token()`: JWT token generation
 
@@ -389,6 +483,10 @@ backend/app/api/endpoints/
 - `_authenticate_production_user()`: Hybrid authentication flow
 - `get_current_user()`: JWT token validation with UUID
 - `login_for_access_token()`: OAuth2 token endpoint
+
+**users.py:**
+- `update_current_user()`: Includes auth_type validation for password changes
+- `update_user()`: Includes auth_type validation for password changes (admin-only)
 
 ### Password Hashing
 
