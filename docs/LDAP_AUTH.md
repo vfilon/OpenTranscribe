@@ -2,11 +2,12 @@
 
 ## Overview
 
-OpenTranscribe supports LDAP/Active Directory authentication with hybrid capabilities:
+OpenTranscribe supports hybrid authentication combining LDAP/Active Directory with local database users:
 
-- **LDAP users**: Auto-created on first login, by default role "user"
+- **LDAP users**: Auto-created on first login with role based on `LDAP_ADMIN_USERS`
 - **Local admin users**: Created manually via registration endpoint with database passwords
-- **Priority**: Local users take precedence (if email exists locally, checks local password first)
+- **Flexible auth**: System supports both email-based (local) and username-based (LDAP) login
+- **Priority**: Local users checked first when `auth_type='local'` in database
 
 ## Configuration
 
@@ -61,19 +62,24 @@ LDAP_ADMIN_USERS=admin1,admin2,john.doe
 
 ## Authentication Flow
 
-### 1. Local User (Database Password)
+### Hybrid Authentication Strategy
+
+The system uses a flexible authentication flow based on the user's `auth_type` in the database:
+
+#### 1. Local User (Database Password)
 
 ```python
 User exists in DB + auth_type = 'local'
-  → Check password in database
+  → Try direct database authentication (bypasses ORM for reliability)
+  → If direct fails, try ORM authentication
   → Success: Return JWT token
-  → Failure: Try LDAP (if enabled)
+  → Failure: Try LDAP (as fallback if user exists)
 ```
 
-### 2. LDAP User
+#### 2. LDAP User
 
 ```python
-LDAP Enabled
+LDAP Enabled OR user not found locally
   → Bind to AD with service account
   → Search for user by sAMAccountName
   → Extract email and cn attributes
@@ -82,7 +88,7 @@ LDAP Enabled
   → Return JWT token
 ```
 
-### 3. First-Time LDAP Login
+#### 3. First-Time LDAP Login
 
 ```python
 User not in database
@@ -96,6 +102,25 @@ User not in database
   → Return JWT token
 ```
 
+### Login Input Options
+
+Users can login with:
+- **Email address** (for local users)
+- **Username/sAMAccountName** (for LDAP users)
+
+The system automatically handles both formats:
+```bash
+# Local user login
+curl -X POST http://localhost:5174/api/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin@example.com&password=local_password"
+
+# LDAP user login
+curl -X POST http://localhost:5174/api/auth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=john.doe&password=ad_password"
+```
+
 ## User Creation
 
 ### LDAP Users
@@ -103,6 +128,7 @@ User not in database
 - **Auto-created**: On first successful LDAP authentication
 - **No registration required**: Users login with AD credentials
 - **Synchronized**: Email and name updated on each login
+- **Role management**: Admin status determined by `LDAP_ADMIN_USERS` list
 
 ### Local Admin Users
 
@@ -120,7 +146,16 @@ curl -X POST http://localhost:5174/api/auth/register \
 
 **Important**: Local registration should be done carefully in production to prevent unauthorized user creation.
 
-## Security Considerations
+## Security Features
+
+### LDAP Injection Protection
+
+The system escapes special characters in LDAP filter values to prevent injection attacks:
+
+```python
+_escaped_username = _escape_ldap_filter(username)
+# Escapes: ( ) * \ NUL characters
+```
 
 ### Service Account Permissions
 
@@ -136,6 +171,12 @@ curl -X POST http://localhost:5174/api/auth/register \
 - Ensure valid SSL certificate on AD server
 - Test connection: `openssl s_client -connect ad-server:636`
 
+### JWT Token Security
+
+- Tokens use UUID as user identifier (not integer ID)
+- Role information included in token for immediate permission updates
+- Tokens expire based on `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` setting
+
 ### Audit Logging
 
 All authentication attempts are logged:
@@ -144,12 +185,14 @@ All authentication attempts are logged:
 logger.info(f"LDAP authentication successful for user: {username}")
 logger.warning(f"LDAP authentication failed for user: {username}")
 logger.info(f"New local user registered: {email}")
+logger.info(f"Direct authentication successful for local user: {username}")
 ```
 
 Check logs for:
 - Failed authentication attempts
 - New user creations
 - Role changes
+- Authentication method used (direct vs LDAP)
 
 ## Troubleshooting
 
@@ -198,6 +241,11 @@ ldapsearch -H ldaps://ad-server.domain.com:636 \
    - Check account is not locked/disabled
    - Verify user can log in to AD normally
 
+5. **"Direct auth failed, trying ORM auth"**
+   - This is expected fallback behavior
+   - Indicates direct DB connection issue
+   - ORM auth will be tried automatically
+
 ## Testing
 
 ### Test LDAP Authentication
@@ -208,6 +256,16 @@ from app.auth.ldap_auth import ldap_authenticate
 result = ldap_authenticate("jdoe", "password")
 print(result)
 # Output: {'username': 'jdoe', 'email': 'jdoe@domain.com', 'full_name': 'John Doe', 'is_admin': False}
+```
+
+### Test Direct Authentication
+
+```python
+from app.auth.direct_auth import direct_authenticate_user
+
+result = direct_authenticate_user("admin@example.com", "password")
+print(result)
+# Output: {'id': 1, 'email': 'admin@example.com', 'full_name': 'Admin User', 'role': 'admin', 'is_active': True, 'is_superuser': True}
 ```
 
 ### Test Hybrid Authentication
@@ -229,9 +287,9 @@ curl -X POST http://localhost:5174/api/auth/token \
 ### User Table (Updated)
 
 ```sql
-CREATE TABLE user (
+CREATE TABLE "user" (
     id SERIAL PRIMARY KEY,
-    uuid UUID UNIQUE NOT NULL,
+    uuid UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),  -- Public identifier
     email VARCHAR(255) UNIQUE NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
     full_name VARCHAR(255),
@@ -240,31 +298,47 @@ CREATE TABLE user (
     role VARCHAR(50) DEFAULT 'user',
     auth_type VARCHAR(10) DEFAULT 'local' NOT NULL,  -- 'local' or 'ldap'
     ldap_uid VARCHAR(255) UNIQUE NULL,  -- sAMAccountName
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_user_ldap_uid ON user (ldap_uid);
+CREATE INDEX idx_user_uuid ON "user"(uuid);
+CREATE INDEX idx_user_ldap_uid ON "user"(ldap_uid);
 ```
+
+### Key Design Decisions
+
+- **UUID as public identifier**: Used in JWT tokens and API responses
+- **Integer ID for internal operations**: Faster database joins and queries
+- **auth_type field**: Determines authentication method to try first
+- **ldap_uid indexed**: Fast lookups for LDAP users
 
 ## Migration from Local to LDAP
 
 For existing systems with local users:
 
 1. Enable LDAP in `.env`
-2. Users with existing accounts continue using local passwords
+2. Users with existing accounts continue using local passwords (`auth_type='local'`)
 3. New users can use LDAP credentials
 4. Optional: Update existing users to LDAP:
 
 ```sql
--- Set auth_type for existing users
-UPDATE user SET auth_type = 'ldap', ldap_uid = LOWER(email) WHERE email LIKE '%@domain.com';
+-- Set auth_type for existing users to use LDAP
+UPDATE "user"
+SET auth_type = 'ldap',
+    ldap_uid = SPLIT_PART(email, '@', 1),
+    hashed_password = ''  -- Empty since auth handled by LDAP
+WHERE email LIKE '%@domain.com';
+
+-- Note: Users must have matching sAMAccountName in AD
 ```
 
 ## Performance Considerations
 
 - **LDAP search caching**: ldap3 caches connections
-- **Database lookup**: First check for local user (indexed by email and ldap_uid)
+- **Direct database auth**: Bypasses ORM for faster local authentication
+- **UUID indexing**: Fast lookups for token validation
+- **Database lookup**: First check for local user by email or ldap_uid
 - **Connection pooling**: Re-use LDAP connections for multiple requests
 - **Timeout**: Set `LDAP_TIMEOUT` to appropriate value (default: 10s)
 
@@ -276,5 +350,49 @@ UPDATE user SET auth_type = 'ldap', ldap_uid = LOWER(email) WHERE email LIKE '%@
 - [ ] LDAP_ADMIN_USERS configured for admins
 - [ ] Firewall allows outbound LDAP connections
 - [ ] Test authentication with real AD users
+- [ ] Test authentication with local users
 - [ ] Verify audit logging is working
 - [ ] Monitor LDAP connection errors in logs
+- [ ] Verify direct auth fallback works
+- [ ] Check UUID-based token validation
+- [ ] Test role updates via LDAP_ADMIN_USERS
+
+## Implementation Details
+
+### Directory Structure
+
+```
+backend/app/auth/
+├── direct_auth.py      # Direct DB authentication (bypasses ORM)
+├── ldap_auth.py        # LDAP/Active Directory authentication
+└── __init__.py
+
+backend/app/api/endpoints/
+└── auth.py             # Authentication endpoints (login, register)
+```
+
+### Key Functions
+
+**ldap_auth.py:**
+- `_escape_ldap_filter()`: Prevents LDAP injection attacks
+- `_get_ldap_server()`: Creates configured LDAP server object
+- `ldap_authenticate()`: Authenticates user against AD
+- `sync_ldap_user_to_db()`: Creates/updates user from LDAP data
+
+**direct_auth.py:**
+- `direct_authenticate_user()`: Direct DB authentication (bypasses ORM)
+- `verify_password()`: Password verification with bcrypt_sha256
+- `create_access_token()`: JWT token generation
+
+**auth.py:**
+- `_authenticate_ldap_user()`: LDAP authentication handler
+- `_authenticate_production_user()`: Hybrid authentication flow
+- `get_current_user()`: JWT token validation with UUID
+- `login_for_access_token()`: OAuth2 token endpoint
+
+### Password Hashing
+
+The system uses `bcrypt_sha256` for password hashing:
+- Pre-hashes passwords with SHA256 (overcomes bcrypt's 72-byte limitation)
+- Supports existing `bcrypt` hashes (will auto-upgrade on verify)
+- Default rounds: 12 for both schemes
