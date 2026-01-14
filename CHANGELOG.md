@@ -5,6 +5,53 @@ All notable changes to OpenTranscribe will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2025-01-13
+
+### Overview
+Community contributions release featuring Russian language support, protected media authentication for corporate video portals, and various bug fixes and improvements.
+
+Special thanks to [@vfilon](https://github.com/vfilon) for contributing all four PRs in this release!
+
+### Added
+
+#### Internationalization
+- **Russian Language Support** - Added Russian (Русский) as the 8th supported UI language (#114)
+- **Protected Media Translations** - Added translations for protected media feature to all 7 non-English languages
+
+#### Protected Media Authentication (#115)
+- **Plugin Architecture** - New extensible plugin system for authenticated media downloads from corporate/internal video portals
+- **MediaCMS Provider** - Built-in support for MediaCMS installations requiring authentication
+- **Frontend UI** - Username/password fields appear automatically when entering URLs from configured protected media hosts
+- **Security** - Credentials are transmitted securely and never stored in the database
+
+#### URL Utilities (#116)
+- **Centralized URL Construction** - New `getFlowerUrl()`, `getAppBaseUrl()`, and `getVideoUrl()` utilities for consistent URL handling across dev and production environments
+
+### Fixed
+
+- **VRAM Monitoring** - Added validation for VRAM monitoring keys to prevent KeyError on non-CUDA devices (#113)
+- **Loading Screen** - Fixed "app.loadingApplication" raw key displaying during initial page load by using hardcoded text before i18n initializes
+
+### Changed
+
+- **Flower Dashboard** - Refactored URL construction to use centralized utility function
+- **Video Playback** - Updated video URL construction to work correctly behind nginx reverse proxy
+
+### Upgrade Notes
+
+Standard Docker Compose update:
+```bash
+docker compose pull
+docker compose up -d
+```
+
+To use protected media authentication, configure allowed hosts in `.env`:
+```bash
+MEDIACMS_ALLOWED_HOSTS=media.example.com,mediacms.internal
+```
+
+---
+
 ## [0.3.2] - 2025-12-17
 
 ### Overview
