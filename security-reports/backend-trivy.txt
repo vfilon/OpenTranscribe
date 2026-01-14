@@ -1,163 +1,143 @@
 
-davidamacey/opentranscribe-backend:latest (debian 13.2)
+davidamacey/opentranscribe-backend:latest (debian 13.3)
 =======================================================
-Total: 36 (UNKNOWN: 0, LOW: 0, MEDIUM: 35, HIGH: 1, CRITICAL: 0)
+Total: 30 (UNKNOWN: 0, LOW: 0, MEDIUM: 30, HIGH: 0, CRITICAL: 0)
 
-┌─────────────────┬────────────────┬──────────┬──────────────┬─────────────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
-│     Library     │ Vulnerability  │ Severity │    Status    │    Installed Version    │ Fixed Version │                            Title                             │
-├─────────────────┼────────────────┼──────────┼──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ bsdutils        │ CVE-2025-14104 │ MEDIUM   │ affected     │ 1:2.41-5                │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
-│                 │                │          │              │                         │               │ when processing 256-byte usernames                           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ ffmpeg          │ CVE-2025-22921 │          │ fix_deferred │ 7:7.1.3-0+deb13u1       │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│ libavcodec61    │ CVE-2025-22921 │          │              │                         │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│ libavdevice61   │ CVE-2025-22921 │          │              │                         │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│ libavfilter10   │ CVE-2025-22921 │          │              │                         │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│ libavformat61   │ CVE-2025-22921 │          │              │                         │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│ libavutil59     │ CVE-2025-22921 │          │              │                         │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libblkid1       │ CVE-2025-14104 │          │ affected     │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
-│                 │                │          │              │                         │               │ when processing 256-byte usernames                           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
-├─────────────────┼────────────────┤          │              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libexpat1       │ CVE-2025-59375 │          │              │ 2.7.1-2                 │               │ expat: libexpat in Expat allows attackers to trigger large   │
-│                 │                │          │              │                         │               │ dynamic memory allocations...                                │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-59375                   │
-├─────────────────┼────────────────┼──────────┤              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libglib2.0-0t64 │ CVE-2025-13601 │ HIGH     │              │ 2.84.4-3~deb13u1        │               │ glib: Integer overflow in in g_escape_uri_string()           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-13601                   │
-│                 ├────────────────┼──────────┤              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-14087 │ MEDIUM   │              │                         │               │ glib: GLib: Buffer underflow in GVariant parser leads to     │
-│                 │                │          │              │                         │               │ heap corruption                                              │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14087                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-14512 │          │              │                         │               │ glib: Integer Overflow in GLib GIO Attribute Escaping Causes │
-│                 │                │          │              │                         │               │ Heap Buffer Overflow...                                      │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14512                   │
-├─────────────────┼────────────────┤          │              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ liblastlog2-2   │ CVE-2025-14104 │          │              │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
-│                 │                │          │              │                         │               │ when processing 256-byte usernames                           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
-├─────────────────┤                │          │              │                         ├───────────────┤                                                              │
-│ libmount1       │                │          │              │                         │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libopenjp2-7    │ CVE-2023-39327 │          │ fix_deferred │ 2.5.3-2.1~deb13u1       │               │ openjpeg: Malicious files can cause the program to enter a   │
-│                 │                │          │              │                         │               │ large loop...                                                │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2023-39327                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2023-39328 │          │              │                         │               │ openjpeg: denail of service via crafted image file           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2023-39328                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2023-39329 │          │              │                         │               │ openjpeg: Resource exhaustion will occur in the              │
-│                 │                │          │              │                         │               │ opj_t1_decode_cblks function in the tcd.c...                 │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2023-39329                   │
-├─────────────────┼────────────────┤          │              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libpostproc58   │ CVE-2025-22921 │          │              │ 7:7.1.3-0+deb13u1       │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libsmartcols1   │ CVE-2025-14104 │          │ affected     │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
-│                 │                │          │              │                         │               │ when processing 256-byte usernames                           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libsndfile1     │ CVE-2024-50613 │          │ fix_deferred │ 1.2.2-2+b1              │               │ libsndfile: Reachable assertion in mpeg_l3_encoder_close     │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2024-50613                   │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libsqlite3-0    │ CVE-2025-7709  │          │ affected     │ 3.46.1-7                │               │ An integer overflow exists in the FTS5                       │
-│                 │                │          │              │                         │               │ https://sqlite.org/fts5.html e ...                           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-7709                    │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libswresample5  │ CVE-2025-22921 │          │ fix_deferred │ 7:7.1.3-0+deb13u1       │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│ libswscale8     │ CVE-2025-22921 │          │              │                         │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
-│                 │                │          │              │                         │               │ contain a seg ...                                            │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
-│                 ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
-│                 │ CVE-2025-9951  │          │              │                         │               │ A heap-buffer-overflow write exists in jpeg2000dec FFmpeg    │
-│                 │                │          │              │                         │               │ which allows ...                                             │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-9951                    │
-├─────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
-│ libuuid1        │ CVE-2025-14104 │          │ affected     │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
-│                 │                │          │              │                         │               │ when processing 256-byte usernames                           │
-│                 │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
-├─────────────────┤                │          │              ├─────────────────────────┼───────────────┤                                                              │
-│ login           │                │          │              │ 1:4.16.0-2+really2.41-5 │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-├─────────────────┤                │          │              ├─────────────────────────┼───────────────┤                                                              │
-│ mount           │                │          │              │ 2.41-5                  │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-├─────────────────┤                │          │              │                         ├───────────────┤                                                              │
-│ util-linux      │                │          │              │                         │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-│                 │                │          │              │                         │               │                                                              │
-└─────────────────┴────────────────┴──────────┴──────────────┴─────────────────────────┴───────────────┴──────────────────────────────────────────────────────────────┘
+┌────────────────┬────────────────┬──────────┬──────────────┬─────────────────────────┬───────────────┬──────────────────────────────────────────────────────────────┐
+│    Library     │ Vulnerability  │ Severity │    Status    │    Installed Version    │ Fixed Version │                            Title                             │
+├────────────────┼────────────────┼──────────┼──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ bsdutils       │ CVE-2025-14104 │ MEDIUM   │ affected     │ 1:2.41-5                │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
+│                │                │          │              │                         │               │ when processing 256-byte usernames                           │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
+├────────────────┼────────────────┤          │              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ curl           │ CVE-2025-13034 │          │              │ 8.14.1-2+deb13u2        │               │ When using `CURLOPT_PINNEDPUBLICKEY` option with libcurl or  │
+│                │                │          │              │                         │               │ `--pinnedp ...                                               │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-13034                   │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ ffmpeg         │ CVE-2025-22921 │          │ fix_deferred │ 7:7.1.3-0+deb13u1       │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
+│                │                │          │              │                         │               │ contain a seg ...                                            │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ libavcodec61   │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ libavdevice61  │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ libavfilter10  │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ libavformat61  │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ libavutil59    │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libblkid1      │ CVE-2025-14104 │          │ affected     │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
+│                │                │          │              │                         │               │ when processing 256-byte usernames                           │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
+├────────────────┼────────────────┤          │              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libcurl4t64    │ CVE-2025-13034 │          │              │ 8.14.1-2+deb13u2        │               │ When using `CURLOPT_PINNEDPUBLICKEY` option with libcurl or  │
+│                │                │          │              │                         │               │ `--pinnedp ...                                               │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-13034                   │
+├────────────────┼────────────────┤          │              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libexpat1      │ CVE-2025-59375 │          │              │ 2.7.1-2                 │               │ expat: libexpat in Expat allows attackers to trigger large   │
+│                │                │          │              │                         │               │ dynamic memory allocations...                                │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-59375                   │
+│                ├────────────────┤          ├──────────────┤                         ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2025-66382 │          │ fix_deferred │                         │               │ libexpat: libexpat: Denial of service via crafted file       │
+│                │                │          │              │                         │               │ processing                                                   │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-66382                   │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ liblastlog2-2  │ CVE-2025-14104 │          │ affected     │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
+│                │                │          │              │                         │               │ when processing 256-byte usernames                           │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ libmount1      │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libopenjp2-7   │ CVE-2023-39327 │          │ fix_deferred │ 2.5.3-2.1~deb13u1       │               │ openjpeg: Malicious files can cause the program to enter a   │
+│                │                │          │              │                         │               │ large loop...                                                │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2023-39327                   │
+│                ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-39328 │          │              │                         │               │ openjpeg: denail of service via crafted image file           │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2023-39328                   │
+│                ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2023-39329 │          │              │                         │               │ openjpeg: Resource exhaustion will occur in the              │
+│                │                │          │              │                         │               │ opj_t1_decode_cblks function in the tcd.c...                 │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2023-39329                   │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libpng16-16t64 │ CVE-2026-22695 │          │ affected     │ 1.6.48-1+deb13u1        │               │ libpng: libpng: Denial of service and information disclosure │
+│                │                │          │              │                         │               │ via heap buffer over-read...                                 │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2026-22695                   │
+│                ├────────────────┤          │              │                         ├───────────────┼──────────────────────────────────────────────────────────────┤
+│                │ CVE-2026-22801 │          │              │                         │               │ libpng: libpng: Information disclosure and denial of service │
+│                │                │          │              │                         │               │ via integer truncation in...                                 │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2026-22801                   │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libpostproc58  │ CVE-2025-22921 │          │ fix_deferred │ 7:7.1.3-0+deb13u1       │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
+│                │                │          │              │                         │               │ contain a seg ...                                            │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libsmartcols1  │ CVE-2025-14104 │          │ affected     │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
+│                │                │          │              │                         │               │ when processing 256-byte usernames                           │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libsndfile1    │ CVE-2024-50613 │          │ fix_deferred │ 1.2.2-2+b1              │               │ libsndfile: Reachable assertion in mpeg_l3_encoder_close     │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2024-50613                   │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libsqlite3-0   │ CVE-2025-7709  │          │ affected     │ 3.46.1-7                │               │ An integer overflow exists in the FTS5                       │
+│                │                │          │              │                         │               │ https://sqlite.org/fts5.html e ...                           │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-7709                    │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libswresample5 │ CVE-2025-22921 │          │ fix_deferred │ 7:7.1.3-0+deb13u1       │               │ FFmpeg git-master,N-113007-g8d24a28d06 was discovered to     │
+│                │                │          │              │                         │               │ contain a seg ...                                            │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-22921                   │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ libswscale8    │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┼────────────────┤          ├──────────────┼─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libtasn1-6     │ CVE-2025-13151 │          │ affected     │ 4.20.0-2                │               │ libtasn1: libtasn1: Denial of Service via stack-based buffer │
+│                │                │          │              │                         │               │ overflow in asn1_expend_octet_string                         │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-13151                   │
+├────────────────┼────────────────┤          │              ├─────────────────────────┼───────────────┼──────────────────────────────────────────────────────────────┤
+│ libuuid1       │ CVE-2025-14104 │          │              │ 2.41-5                  │               │ util-linux: util-linux: Heap buffer overread in setpwnam()   │
+│                │                │          │              │                         │               │ when processing 256-byte usernames                           │
+│                │                │          │              │                         │               │ https://avd.aquasec.com/nvd/cve-2025-14104                   │
+├────────────────┤                │          │              ├─────────────────────────┼───────────────┤                                                              │
+│ login          │                │          │              │ 1:4.16.0-2+really2.41-5 │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┤                │          │              ├─────────────────────────┼───────────────┤                                                              │
+│ mount          │                │          │              │ 2.41-5                  │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+├────────────────┤                │          │              │                         ├───────────────┤                                                              │
+│ util-linux     │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+│                │                │          │              │                         │               │                                                              │
+└────────────────┴────────────────┴──────────┴──────────────┴─────────────────────────┴───────────────┴──────────────────────────────────────────────────────────────┘
 
 Python (python-pkg)
 ===================
-Total: 1 (UNKNOWN: 0, LOW: 0, MEDIUM: 0, HIGH: 1, CRITICAL: 0)
+Total: 2 (UNKNOWN: 0, LOW: 0, MEDIUM: 0, HIGH: 2, CRITICAL: 0)
 
-┌──────────────────┬────────────────┬──────────┬──────────┬───────────────────┬───────────────┬────────────────────────────────────────────────┐
-│     Library      │ Vulnerability  │ Severity │  Status  │ Installed Version │ Fixed Version │                     Title                      │
-├──────────────────┼────────────────┼──────────┼──────────┼───────────────────┼───────────────┼────────────────────────────────────────────────┤
-│ ecdsa (METADATA) │ CVE-2024-23342 │ HIGH     │ affected │ 0.19.1            │               │ python-ecdsa: vulnerable to the Minerva attack │
-│                  │                │          │          │                   │               │ https://avd.aquasec.com/nvd/cve-2024-23342     │
-└──────────────────┴────────────────┴──────────┴──────────┴───────────────────┴───────────────┴────────────────────────────────────────────────┘
+┌───────────────────────────┬─────────────────────┬──────────┬──────────┬───────────────────┬───────────────┬───────────────────────────────────────────────────┐
+│          Library          │    Vulnerability    │ Severity │  Status  │ Installed Version │ Fixed Version │                       Title                       │
+├───────────────────────────┼─────────────────────┼──────────┼──────────┼───────────────────┼───────────────┼───────────────────────────────────────────────────┤
+│ ecdsa (METADATA)          │ CVE-2024-23342      │ HIGH     │ affected │ 0.19.1            │               │ python-ecdsa: vulnerable to the Minerva attack    │
+│                           │                     │          │          │                   │               │ https://avd.aquasec.com/nvd/cve-2024-23342        │
+├───────────────────────────┼─────────────────────┤          ├──────────┼───────────────────┼───────────────┼───────────────────────────────────────────────────┤
+│ jaraco.context (METADATA) │ GHSA-58pv-8j8x-9vj2 │          │ fixed    │ 5.3.0             │ 6.1.0         │ jaraco.context Has a Path Traversal Vulnerability │
+│                           │                     │          │          │                   │               │ https://github.com/advisories/GHSA-58pv-8j8x-9vj2 │
+└───────────────────────────┴─────────────────────┴──────────┴──────────┴───────────────────┴───────────────┴───────────────────────────────────────────────────┘
 
 /home/appuser/.local/lib/python3.13/site-packages/yt_dlp/extractor/__pycache__/adultswim.cpython-313.pyc (secrets)
 ==================================================================================================================
